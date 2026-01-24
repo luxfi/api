@@ -27,4 +27,14 @@ type Service interface {
 
 	SetTrackedChains(ctx context.Context, args *SetTrackedChainsArgs) (*SetTrackedChainsReply, error)
 	GetTrackedChains(ctx context.Context) (*GetTrackedChainsReply, error)
+
+	// Snapshot creates a database backup to the specified path.
+	// Use .zst extension for zstd compression.
+	// since: 0 for full backup, or version from last backup for incremental.
+	// Returns the version number for future incremental backups.
+	Snapshot(ctx context.Context, args *SnapshotArgs) (*SnapshotReply, error)
+
+	// Load restores the database from a backup file.
+	// Detects compression from .zst extension.
+	Load(ctx context.Context, args *LoadArgs) (*EmptyReply, error)
 }
