@@ -88,17 +88,17 @@ type IsBootstrappedResponse struct {
 
 // UptimeResponse are the results from calling Uptime.
 type UptimeResponse struct {
-	RewardingStakePercentage types.Float64 `json:"rewardingStakePercentage"`
+	RewardingStakePercentage  types.Float64 `json:"rewardingStakePercentage"`
 	WeightedAveragePercentage types.Float64 `json:"weightedAveragePercentage"`
 }
 
 // LP is information about an LP proposal.
 type LP struct {
-	SupportWeight types.Uint64         `json:"supportWeight"`
-	Supporters    set.Set[ids.NodeID]  `json:"supporters"`
-	ObjectWeight  types.Uint64         `json:"objectWeight"`
-	Objectors     set.Set[ids.NodeID]  `json:"objectors"`
-	AbstainWeight types.Uint64         `json:"abstainWeight"`
+	SupportWeight types.Uint64        `json:"supportWeight"`
+	Supporters    set.Set[ids.NodeID] `json:"supporters"`
+	ObjectWeight  types.Uint64        `json:"objectWeight"`
+	Objectors     set.Set[ids.NodeID] `json:"objectors"`
+	AbstainWeight types.Uint64        `json:"abstainWeight"`
 }
 
 // LPsReply are the results from calling LPs.
@@ -108,13 +108,13 @@ type LPsReply struct {
 
 // GetTxFeeResponse are the results from calling GetTxFee.
 type GetTxFeeResponse struct {
-	TxFee                         types.Uint64 `json:"txFee"`
-	CreateAssetTxFee              types.Uint64 `json:"createAssetTxFee"`
-	CreateNetworkTxFee            types.Uint64 `json:"createNetworkTxFee"`
-	TransformChainTxFee           types.Uint64 `json:"transformChainTxFee"`
-	CreateChainTxFee              types.Uint64 `json:"createChainTxFee"`
-	AddNetworkValidatorFee        types.Uint64 `json:"addNetworkValidatorFee"`
-	AddNetworkDelegatorFee        types.Uint64 `json:"addNetworkDelegatorFee"`
+	TxFee                  types.Uint64 `json:"txFee"`
+	CreateAssetTxFee       types.Uint64 `json:"createAssetTxFee"`
+	CreateNetworkTxFee     types.Uint64 `json:"createNetworkTxFee"`
+	TransformChainTxFee    types.Uint64 `json:"transformChainTxFee"`
+	CreateChainTxFee       types.Uint64 `json:"createChainTxFee"`
+	AddNetworkValidatorFee types.Uint64 `json:"addNetworkValidatorFee"`
+	AddNetworkDelegatorFee types.Uint64 `json:"addNetworkDelegatorFee"`
 }
 
 // GetVMsReply contains the response metadata for GetVMs.

@@ -6,19 +6,19 @@ package info
 import "context"
 
 const (
-	MethodGetNodeVersion = "info.getNodeVersion"
-	MethodGetNodeID      = "info.getNodeID"
-	MethodGetNodeIP      = "info.getNodeIP"
-	MethodGetNetworkID   = "info.getNetworkID"
-	MethodGetNetworkName = "info.getNetworkName"
+	MethodGetNodeVersion  = "info.getNodeVersion"
+	MethodGetNodeID       = "info.getNodeID"
+	MethodGetNodeIP       = "info.getNodeIP"
+	MethodGetNetworkID    = "info.getNetworkID"
+	MethodGetNetworkName  = "info.getNetworkName"
 	MethodGetBlockchainID = "info.getBlockchainID"
-	MethodPeers          = "info.peers"
-	MethodIsBootstrapped = "info.isBootstrapped"
-	MethodUpgrades       = "info.upgrades"
-	MethodUptime         = "info.uptime"
-	MethodLps            = "info.lps"
-	MethodGetTxFee       = "info.getTxFee"
-	MethodGetVMs         = "info.getVMs"
+	MethodPeers           = "info.peers"
+	MethodIsBootstrapped  = "info.isBootstrapped"
+	MethodUpgrades        = "info.upgrades"
+	MethodUptime          = "info.uptime"
+	MethodLps             = "info.lps"
+	MethodGetTxFee        = "info.getTxFee"
+	MethodGetVMs          = "info.getVMs"
 )
 
 // Service defines the info API contract.
