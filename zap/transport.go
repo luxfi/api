@@ -373,10 +373,10 @@ type Server struct {
 	listener *Listener
 	handler  Handler
 
-	mu      sync.Mutex
-	conns   map[*ServerConn]struct{}
-	closed  atomic.Bool
-	done    chan struct{}
+	mu     sync.Mutex
+	conns  map[*ServerConn]struct{}
+	closed atomic.Bool
+	done   chan struct{}
 }
 
 // NewServer creates a new ZAP server

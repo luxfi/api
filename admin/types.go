@@ -4,8 +4,8 @@
 package admin
 
 import (
-	"github.com/luxfi/ids"
 	"github.com/luxfi/api/types"
+	"github.com/luxfi/ids"
 )
 
 // AliasArgs are the arguments for calling Alias.

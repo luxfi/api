@@ -18,10 +18,10 @@ type APIArgs struct {
 
 // Result describes a health check result.
 type Result struct {
-	Details             interface{} `json:"message,omitempty"`
-	Error               *string     `json:"error,omitempty"`
-	Timestamp           time.Time   `json:"timestamp,omitempty"`
-	Duration            time.Duration `json:"duration"`
-	ContiguousFailures  int64       `json:"contiguousFailures,omitempty"`
-	TimeOfFirstFailure  *time.Time  `json:"timeOfFirstFailure,omitempty"`
+	Details            interface{}   `json:"message,omitempty"`
+	Error              *string       `json:"error,omitempty"`
+	Timestamp          time.Time     `json:"timestamp,omitempty"`
+	Duration           time.Duration `json:"duration"`
+	ContiguousFailures int64         `json:"contiguousFailures,omitempty"`
+	TimeOfFirstFailure *time.Time    `json:"timeOfFirstFailure,omitempty"`
 }
