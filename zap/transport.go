@@ -218,9 +218,17 @@ func (c *Conn) readLoop() {
 		c.mu.Unlock()
 
 		if ok {
-			ch <- &response{
-				msgType: msgType,
-				payload: respPayload,
+			// Check for error response (MsgResponseFlag set)
+			if msgType&MsgResponseFlag != 0 {
+				errMsg := string(respPayload)
+				ch <- &response{
+					err: fmt.Errorf("remote error: %s", errMsg),
+				}
+			} else {
+				ch <- &response{
+					msgType: msgType,
+					payload: respPayload,
+				}
 			}
 		}
 	}
@@ -335,7 +343,7 @@ func (c *ServerConn) Write(reqID uint32, msgType MessageType, payload []byte) er
 		_ = c.conn.SetWriteDeadline(time.Now().Add(c.config.WriteTimeout))
 	}
 
-	if err := WriteMessage(c.writer, msgType|MsgResponseFlag, respBuf.Bytes()); err != nil {
+	if err := WriteMessage(c.writer, msgType, respBuf.Bytes()); err != nil {
 		return err
 	}
 	return c.writer.Flush()
@@ -441,21 +449,25 @@ func (s *Server) handleConn(ctx context.Context, conn *ServerConn) {
 			continue
 		}
 
-		// Handle request
-		respType, respPayload, err := s.handler.Handle(ctx, msgType, payload)
-		if err != nil {
-			// Send error response
-			errBuf := GetBuffer()
-			errBuf.WriteString(err.Error())
-			_ = conn.Write(reqID, msgType|MsgResponseFlag, errBuf.Bytes())
-			PutBuffer(errBuf)
-			continue
-		}
+		// Handle request concurrently to avoid blocking on long-running
+		// operations like WaitForEvent. Write is protected by writeMu.
+		go func(reqID uint32, msgType MessageType, payload []byte) {
+			defer func() {
+				if r := recover(); r != nil {
+					// Send panic as error response
+					errMsg := fmt.Sprintf("handler panic: %v", r)
+					conn.Write(reqID, msgType|MsgResponseFlag, []byte(errMsg))
+				}
+			}()
 
-		// Send response
-		if err := conn.Write(reqID, respType, respPayload); err != nil {
-			return
-		}
+			respType, respPayload, err := s.handler.Handle(ctx, msgType, payload)
+			if err != nil {
+				conn.Write(reqID, msgType|MsgResponseFlag, []byte(err.Error()))
+				return
+			}
+
+			conn.Write(reqID, respType, respPayload)
+		}(reqID, msgType, payload)
 	}
 }
 
