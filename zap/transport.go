@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -206,6 +207,9 @@ func (c *Conn) readLoop() {
 			return
 		}
 
+		fmt.Fprintf(os.Stderr, "[ZAP-CLIENT-READ] msgType=0x%02x payloadLen=%d responseFlag=%v\n",
+			byte(msgType), len(payload), msgType&MsgResponseFlag != 0)
+
 		// Extract request ID from response
 		if len(payload) < 4 {
 			continue
@@ -339,6 +343,9 @@ func (c *ServerConn) Write(reqID uint32, msgType MessageType, payload []byte) er
 	c.writeMu.Lock()
 	defer c.writeMu.Unlock()
 
+	fmt.Fprintf(os.Stderr, "[ZAP-SERVER-WRITE] msgType=0x%02x reqID=%d payloadLen=%d responseFlag=%v\n",
+		byte(msgType), reqID, len(payload), msgType&MsgResponseFlag != 0)
+
 	if c.config.WriteTimeout > 0 {
 		_ = c.conn.SetWriteDeadline(time.Now().Add(c.config.WriteTimeout))
 	}
@@ -461,6 +468,8 @@ func (s *Server) handleConn(ctx context.Context, conn *ServerConn) {
 			}()
 
 			respType, respPayload, err := s.handler.Handle(ctx, msgType, payload)
+			fmt.Fprintf(os.Stderr, "[ZAP-HANDLER] reqMsgType=0x%02x respType=0x%02x err=%v respLen=%d\n",
+				byte(msgType), byte(respType), err, len(respPayload))
 			if err != nil {
 				conn.Write(reqID, msgType|MsgResponseFlag, []byte(err.Error()))
 				return
