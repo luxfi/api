@@ -3,16 +3,6 @@
 
 package zap
 
-// State represents the VM state
-type State uint8
-
-const (
-	StateUnspecified State = iota
-	StateStateSyncing
-	StateBootstrapping
-	StateNormalOp
-)
-
 // Error represents VM errors
 type Error uint8
 
@@ -233,20 +223,24 @@ func (m *InitializeResponse) Decode(r *Reader) error {
 	return err
 }
 
-// SetStateRequest contains state change request
+// SetStateRequest contains state change request.
+// State values are defined in github.com/luxfi/vm (vm.State):
+//
+//	Unknown=0, Starting=1, Syncing=2, Bootstrapping=3,
+//	Ready=4, Degraded=5, Stopping=6, Stopped=7
 type SetStateRequest struct {
-	State State
+	State uint8
 }
 
 // Encode serializes SetStateRequest to the buffer
 func (m *SetStateRequest) Encode(buf *Buffer) {
-	buf.WriteUint8(uint8(m.State))
+	buf.WriteUint8(m.State)
 }
 
 // Decode deserializes SetStateRequest from the reader
 func (m *SetStateRequest) Decode(r *Reader) error {
-	v, err := r.ReadUint8()
-	m.State = State(v)
+	var err error
+	m.State, err = r.ReadUint8()
 	return err
 }
 
