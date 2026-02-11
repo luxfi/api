@@ -6,7 +6,9 @@ package zap
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
+	"os"
 	"sync"
 )
 
@@ -323,6 +325,9 @@ func ReadMessage(r io.Reader) (MessageType, []byte, error) {
 
 	length := binary.BigEndian.Uint32(header[0:4])
 	msgType := MessageType(header[4])
+
+	fmt.Fprintf(os.Stderr, "[ZAP-WIRE-READ] header=%x len=%d msgType=0x%02x\n",
+		header, length, byte(msgType))
 
 	if length > MaxMessageSize {
 		return 0, nil, ErrMessageTooLarge
