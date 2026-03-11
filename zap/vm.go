@@ -3,6 +3,20 @@
 
 package zap
 
+// State represents VM state values
+type State uint8
+
+const (
+	StateUnknown      State = 0
+	StateStarting     State = 1
+	StateSyncing      State = 2
+	StateBootstrapping State = 3
+	StateReady        State = 4
+	StateDegraded     State = 5
+	StateStopping     State = 6
+	StateStopped      State = 7
+)
+
 // Error represents VM errors
 type Error uint8
 
@@ -229,18 +243,18 @@ func (m *InitializeResponse) Decode(r *Reader) error {
 //	Unknown=0, Starting=1, Syncing=2, Bootstrapping=3,
 //	Ready=4, Degraded=5, Stopping=6, Stopped=7
 type SetStateRequest struct {
-	State uint8
+	State State
 }
 
 // Encode serializes SetStateRequest to the buffer
 func (m *SetStateRequest) Encode(buf *Buffer) {
-	buf.WriteUint8(m.State)
+	buf.WriteUint8(uint8(m.State))
 }
 
 // Decode deserializes SetStateRequest from the reader
 func (m *SetStateRequest) Decode(r *Reader) error {
-	var err error
-	m.State, err = r.ReadUint8()
+	v, err := r.ReadUint8()
+	m.State = State(v)
 	return err
 }
 
