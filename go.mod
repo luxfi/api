@@ -1,6 +1,6 @@
 module github.com/luxfi/api
 
-go 1.26
+go 1.26.1
 
 require (
 	capnproto.org/go/capnp/v3 v3.1.0-alpha.2
