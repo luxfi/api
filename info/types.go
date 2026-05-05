@@ -25,6 +25,29 @@ type GetNodeVersionReply struct {
 	RPCProtocolVersion types.Uint32      `json:"rpcProtocolVersion"`
 	GitCommit          string            `json:"gitCommit"`
 	VMVersions         map[string]string `json:"vmVersions"`
+	// Consensus describes the active consensus configuration. Populated
+	// from the in-memory consensus engine state at request time. Omitted
+	// for legacy clients that don't wire it through.
+	Consensus *ConsensusInfo `json:"consensus,omitempty"`
+}
+
+// ConsensusInfo summarises the consensus configuration of a running node so
+// callers don't have to scrape the boot logs to learn whether Quasar is in
+// triple/dual/classical mode.
+type ConsensusInfo struct {
+	// Mode is one of "triple" (BLS + Ringtail + ML-DSA), "dual" (BLS +
+	// Ringtail), or "classical" (BLS only). Free-form so future modes
+	// don't bump the API version.
+	Mode string `json:"mode"`
+	// BLS is always true for production Quasar nodes.
+	BLS bool `json:"bls"`
+	// Ringtail is true when the post-quantum lattice threshold path is wired.
+	Ringtail bool `json:"ringtail"`
+	// MLDSA is true when ML-DSA-65 (FIPS 204) signature verification is wired.
+	MLDSA bool `json:"mlDSA"`
+	// PlatformVM is true when the production PlatformVM wiring is in use,
+	// false when running with the dev/stub PlatformVM.
+	PlatformVM bool `json:"platformVM"`
 }
 
 // GetNodeIDReply are the results from calling GetNodeID.
