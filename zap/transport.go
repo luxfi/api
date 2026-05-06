@@ -258,6 +258,16 @@ func Listen(addr string, config *Config) (*Listener, error) {
 	}, nil
 }
 
+// NewListener wraps an existing net.Listener as a ZAP listener. Any
+// transport that yields net.Conn — Unix sockets, in-memory pipes, a
+// post-handshake Z-Wing listener — can be served as ZAP this way.
+func NewListener(raw net.Listener, config *Config) *Listener {
+	if config == nil {
+		config = DefaultConfig()
+	}
+	return &Listener{listener: raw, config: config}
+}
+
 // Accept accepts a new connection
 func (l *Listener) Accept() (*ServerConn, error) {
 	conn, err := l.listener.Accept()
