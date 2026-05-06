@@ -80,19 +80,33 @@ For Lux node-to-node connections, the canonical PQ layer is `~/work/lux/node/net
 
 Hybrid combination: `combined_secret = HKDF-SHA256(X25519_shared || ML_KEM_shared)`. Forward secrecy via fresh ephemeral keys per session, zeroed after handshake. Optional `requirePostQuantum: true` rejects classical-only peers; default allows fallback for backward compatibility. See `~/work/lux/node/network/dialer/rns_link.go` and `rns_identity_pq.go` for the full implementation; the spec is LP-9701.
 
+The X25519+ML-KEM-768 hybrid pattern matches the IETF **X-Wing** KEM construction (`draft-connolly-cfrg-xwing-kem`). Lux's RNS hybrid uses the same component primitives but its own KDF wrapping; consumers expecting the literal X-Wing wire format should not assume drop-in interop with RNS without checking the KDF labels. New code that wants standards-conformant interop should use the X-Wing path in `zap-protocol/zap-go` (or its sibling Rust crate) once it lands.
+
 ### 2. zap-protocol (canonical PQ for AI-agent ZAP)
 
 For the multi-language ZAP at `~/work/zap`, the Rust core (`zap/src/crypto.rs`) provides the same PQ primitives directly in the protocol layer:
 
 - `PQKeyExchange` — ML-KEM-768 (`encapsulate` / `decapsulate`)
 - `PQSignature` — ML-DSA-65 (`sign` / `verify`)
-- `HybridHandshake` — X25519 + ML-KEM-768 with HKDF combine
+- `HybridHandshake` — X25519 + ML-KEM-768 with HKDF combine. This is the **X-Wing** construction (`draft-connolly-cfrg-xwing-kem`); the Rust core implements the IETF spec's KDF labels exactly so consumers across language bindings interop on the wire.
 
 Backend chain (Rust):
 1. `luxcrypto-sys` (libluxcrypto FFI) — preferred, FIPS 203/204 via Cloudflare CIRCL
 2. `pqcrypto` Rust crate — fallback
 
 Sizes: `MLKEM_PUBLIC_KEY_SIZE`=1184, `MLKEM_CIPHERTEXT_SIZE`=1088, `MLDSA_PUBLIC_KEY_SIZE`=1952, `MLDSA_SIGNATURE_SIZE`=3309.
+
+### Why two hybrids?
+
+| | RNS hybrid | X-Wing |
+|---|---|---|
+| Purpose | Lux node-to-node session | AI-agent ZAP, cross-language |
+| Components | X25519 + ML-KEM-768 + Ed25519/ML-DSA identity | X25519 + ML-KEM-768 |
+| KDF | HKDF-SHA256 with Lux-specific labels | IETF X-Wing combiner |
+| Standard | LP-9701 | draft-connolly-cfrg-xwing-kem |
+| Identity tied to handshake? | Yes (Ed25519 + ML-DSA cert chain) | Separate (apps layer their own auth) |
+
+For brand-new code: prefer X-Wing where standards-conformant interop matters (open clients, cross-org boundaries). Keep RNS hybrid where the handshake must bind validator identity to the PQ session, because RNS rolls identity into the construction.
 
 ### When to use which
 
