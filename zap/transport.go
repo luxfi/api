@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -207,9 +206,6 @@ func (c *Conn) readLoop() {
 			return
 		}
 
-		fmt.Fprintf(os.Stderr, "[ZAP-CLIENT-READ] msgType=0x%02x payloadLen=%d responseFlag=%v\n",
-			byte(msgType), len(payload), msgType&MsgResponseFlag != 0)
-
 		// Extract request ID from response
 		if len(payload) < 4 {
 			continue
@@ -222,11 +218,12 @@ func (c *Conn) readLoop() {
 		c.mu.Unlock()
 
 		if ok {
-			// Check for error response (MsgResponseFlag set)
-			if msgType&MsgResponseFlag != 0 {
-				errMsg := string(respPayload)
+			// Error responses carry MsgErrorFlag and have the error
+			// string as their payload. Success responses carry only
+			// MsgResponseFlag and have the application payload.
+			if msgType&MsgErrorFlag != 0 {
 				ch <- &response{
-					err: fmt.Errorf("remote error: %s", errMsg),
+					err: fmt.Errorf("remote error: %s", string(respPayload)),
 				}
 			} else {
 				ch <- &response{
@@ -343,9 +340,6 @@ func (c *ServerConn) Write(reqID uint32, msgType MessageType, payload []byte) er
 	c.writeMu.Lock()
 	defer c.writeMu.Unlock()
 
-	fmt.Fprintf(os.Stderr, "[ZAP-SERVER-WRITE] msgType=0x%02x reqID=%d payloadLen=%d responseFlag=%v\n",
-		byte(msgType), reqID, len(payload), msgType&MsgResponseFlag != 0)
-
 	if c.config.WriteTimeout > 0 {
 		_ = c.conn.SetWriteDeadline(time.Now().Add(c.config.WriteTimeout))
 	}
@@ -461,21 +455,21 @@ func (s *Server) handleConn(ctx context.Context, conn *ServerConn) {
 		go func(reqID uint32, msgType MessageType, payload []byte) {
 			defer func() {
 				if r := recover(); r != nil {
-					// Send panic as error response
 					errMsg := fmt.Sprintf("handler panic: %v", r)
-					conn.Write(reqID, msgType|MsgResponseFlag, []byte(errMsg))
+					conn.Write(reqID, msgType|MsgResponseFlag|MsgErrorFlag, []byte(errMsg))
 				}
 			}()
 
 			respType, respPayload, err := s.handler.Handle(ctx, msgType, payload)
-			fmt.Fprintf(os.Stderr, "[ZAP-HANDLER] reqMsgType=0x%02x respType=0x%02x err=%v respLen=%d\n",
-				byte(msgType), byte(respType), err, len(respPayload))
 			if err != nil {
-				conn.Write(reqID, msgType|MsgResponseFlag, []byte(err.Error()))
+				conn.Write(reqID, msgType|MsgResponseFlag|MsgErrorFlag, []byte(err.Error()))
 				return
 			}
 
-			conn.Write(reqID, respType, respPayload)
+			// Success responses carry only MsgResponseFlag — the client
+			// demultiplexer routes by request ID and distinguishes
+			// success from error via MsgErrorFlag.
+			conn.Write(reqID, respType|MsgResponseFlag, respPayload)
 		}(reqID, msgType, payload)
 	}
 }

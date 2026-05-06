@@ -6,9 +6,7 @@ package zap
 import (
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"io"
-	"os"
 	"sync"
 )
 
@@ -77,9 +75,18 @@ const (
 	MsgWarpGetPublicKey MessageType = 51
 	MsgWarpBatchSign    MessageType = 52
 
-	// Response flag - set on response messages (high bit)
-	// All message types must be < 128 to allow OR with this flag
-	MsgResponseFlag MessageType = 128
+	// Response flag - set on response messages (bit 7 / high bit).
+	// All message types must be < 64 (0x40) to allow OR with this flag
+	// AND with MsgErrorFlag below.
+	MsgResponseFlag MessageType = 0x80
+
+	// Error flag - set on response messages that carry an error.
+	// Always co-occurs with MsgResponseFlag on the wire:
+	//   success response: msgType | MsgResponseFlag
+	//   error response:   msgType | MsgResponseFlag | MsgErrorFlag
+	// Payload of an error response is the error string (length-prefixed
+	// after the request ID).
+	MsgErrorFlag MessageType = 0x40
 )
 
 // Buffer is a reusable byte buffer for zero-copy operations
@@ -325,9 +332,6 @@ func ReadMessage(r io.Reader) (MessageType, []byte, error) {
 
 	length := binary.BigEndian.Uint32(header[0:4])
 	msgType := MessageType(header[4])
-
-	fmt.Fprintf(os.Stderr, "[ZAP-WIRE-READ] header=%x len=%d msgType=0x%02x\n",
-		header, length, byte(msgType))
 
 	if length > MaxMessageSize {
 		return 0, nil, ErrMessageTooLarge
