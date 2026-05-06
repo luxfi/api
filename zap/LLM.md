@@ -11,6 +11,14 @@ ZAP is Lux's binary RPC wire protocol. Two implementations exist; both speak com
 
 Both are valid; they target different workloads. The `luxfi/api/zap` package is the tight Go-only wire format used inside the Lux node ecosystem. `zap-protocol` is the multi-language schema-driven implementation.
 
+## Default port
+
+**ZAP runs on TCP port 9999 by default** across all Lux services
+(netrunner control, KMS ZAP transport, VM plugin handshake). Override
+only when running multiple ZAP servers on the same host. Production
+deployments bind to a routable interface; `127.0.0.1:9999` is the
+canonical local-dev / test address.
+
 ## Wire format (`luxfi/api/zap`)
 
 Per-message frame:
