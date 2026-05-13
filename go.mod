@@ -1,6 +1,6 @@
 module github.com/luxfi/api
 
-go 1.26.1
+go 1.26.3
 
 require (
 	github.com/luxfi/consensus v1.22.85
