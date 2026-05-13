@@ -20,6 +20,7 @@ require (
 	github.com/gorilla/rpc v1.2.1 // indirect
 	github.com/holiman/uint256 v1.3.2 // indirect
 	github.com/klauspost/compress v1.18.4 // indirect
+	github.com/luxfi/accel v1.0.7 // indirect
 	github.com/luxfi/atomic v1.0.0 // indirect
 	github.com/luxfi/cache v1.2.1 // indirect
 	github.com/luxfi/codec v1.1.3 // indirect
@@ -28,7 +29,7 @@ require (
 	github.com/luxfi/const v1.4.1 // indirect
 	github.com/luxfi/constants v1.4.3 // indirect
 	github.com/luxfi/container v0.0.4 // indirect
-	github.com/luxfi/crypto v1.17.40 // indirect
+	github.com/luxfi/crypto v1.19.0 // indirect
 	github.com/luxfi/database v1.17.42 // indirect
 	github.com/luxfi/geth v1.16.73 // indirect
 	github.com/luxfi/log v1.4.1 // indirect
