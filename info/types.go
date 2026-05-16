@@ -41,8 +41,8 @@ type ConsensusInfo struct {
 	Mode string `json:"mode"`
 	// BLS is always true for production Quasar nodes.
 	BLS bool `json:"bls"`
-	// Ringtail is true when the post-quantum lattice threshold path is wired.
-	Ringtail bool `json:"ringtail"`
+	// Corona is true when the post-quantum lattice threshold path is wired.
+	Corona bool `json:"corona"`
 	// MLDSA is true when ML-DSA-65 (FIPS 204) signature verification is wired.
 	MLDSA bool `json:"mlDSA"`
 	// PlatformVM is true when the production PlatformVM wiring is in use,
