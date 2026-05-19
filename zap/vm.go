@@ -27,114 +27,25 @@ const (
 	ErrorStateSyncNotImplemented
 )
 
-// NetworkUpgrades contains network upgrade timestamps
-type NetworkUpgrades struct {
-	ApricotPhase1Time            int64
-	ApricotPhase2Time            int64
-	ApricotPhase3Time            int64
-	ApricotPhase4Time            int64
-	ApricotPhase4MinPChainHeight uint64
-	ApricotPhase5Time            int64
-	ApricotPhasePre6Time         int64
-	ApricotPhase6Time            int64
-	ApricotPhasePost6Time        int64
-	BanffTime                    int64
-	CortinaTime                  int64
-	CortinaXChainStopVertexID    []byte
-	DurangoTime                  int64
-	EtnaTime                     int64
-	FortunaTime                  int64
-	GraniteTime                  int64
-}
-
-// Encode serializes NetworkUpgrades to the buffer
-func (n *NetworkUpgrades) Encode(buf *Buffer) {
-	buf.WriteInt64(n.ApricotPhase1Time)
-	buf.WriteInt64(n.ApricotPhase2Time)
-	buf.WriteInt64(n.ApricotPhase3Time)
-	buf.WriteInt64(n.ApricotPhase4Time)
-	buf.WriteUint64(n.ApricotPhase4MinPChainHeight)
-	buf.WriteInt64(n.ApricotPhase5Time)
-	buf.WriteInt64(n.ApricotPhasePre6Time)
-	buf.WriteInt64(n.ApricotPhase6Time)
-	buf.WriteInt64(n.ApricotPhasePost6Time)
-	buf.WriteInt64(n.BanffTime)
-	buf.WriteInt64(n.CortinaTime)
-	buf.WriteBytes(n.CortinaXChainStopVertexID)
-	buf.WriteInt64(n.DurangoTime)
-	buf.WriteInt64(n.EtnaTime)
-	buf.WriteInt64(n.FortunaTime)
-	buf.WriteInt64(n.GraniteTime)
-}
-
-// Decode deserializes NetworkUpgrades from the reader
-func (n *NetworkUpgrades) Decode(r *Reader) error {
-	var err error
-	if n.ApricotPhase1Time, err = r.ReadInt64(); err != nil {
-		return err
-	}
-	if n.ApricotPhase2Time, err = r.ReadInt64(); err != nil {
-		return err
-	}
-	if n.ApricotPhase3Time, err = r.ReadInt64(); err != nil {
-		return err
-	}
-	if n.ApricotPhase4Time, err = r.ReadInt64(); err != nil {
-		return err
-	}
-	if n.ApricotPhase4MinPChainHeight, err = r.ReadUint64(); err != nil {
-		return err
-	}
-	if n.ApricotPhase5Time, err = r.ReadInt64(); err != nil {
-		return err
-	}
-	if n.ApricotPhasePre6Time, err = r.ReadInt64(); err != nil {
-		return err
-	}
-	if n.ApricotPhase6Time, err = r.ReadInt64(); err != nil {
-		return err
-	}
-	if n.ApricotPhasePost6Time, err = r.ReadInt64(); err != nil {
-		return err
-	}
-	if n.BanffTime, err = r.ReadInt64(); err != nil {
-		return err
-	}
-	if n.CortinaTime, err = r.ReadInt64(); err != nil {
-		return err
-	}
-	if n.CortinaXChainStopVertexID, err = r.ReadBytes(); err != nil {
-		return err
-	}
-	if n.DurangoTime, err = r.ReadInt64(); err != nil {
-		return err
-	}
-	if n.EtnaTime, err = r.ReadInt64(); err != nil {
-		return err
-	}
-	if n.FortunaTime, err = r.ReadInt64(); err != nil {
-		return err
-	}
-	n.GraniteTime, err = r.ReadInt64()
-	return err
-}
-
-// InitializeRequest contains initialization parameters
+// InitializeRequest contains initialization parameters.
+//
+// Note: the upstream upgrade-timestamp surface was ripped under the activate-
+// all-implicitly directive — every chain runs the post-Granite rule-set from
+// genesis, so there are no per-upgrade timestamps to ship over the wire.
 type InitializeRequest struct {
-	NetworkID       uint32
-	ChainID         []byte
-	NodeID          []byte
-	PublicKey       []byte
-	XChainID        []byte
-	CChainID        []byte
-	LuxAssetID      []byte
-	ChainDataDir    string
-	GenesisBytes    []byte
-	UpgradeBytes    []byte
-	ConfigBytes     []byte
-	DBServerAddr    string
-	ServerAddr      string
-	NetworkUpgrades NetworkUpgrades
+	NetworkID    uint32
+	ChainID      []byte
+	NodeID       []byte
+	PublicKey    []byte
+	XChainID     []byte
+	CChainID     []byte
+	LuxAssetID   []byte
+	ChainDataDir string
+	GenesisBytes []byte
+	UpgradeBytes []byte
+	ConfigBytes  []byte
+	DBServerAddr string
+	ServerAddr   string
 }
 
 // Encode serializes InitializeRequest to the buffer
@@ -152,7 +63,6 @@ func (m *InitializeRequest) Encode(buf *Buffer) {
 	buf.WriteBytes(m.ConfigBytes)
 	buf.WriteString(m.DBServerAddr)
 	buf.WriteString(m.ServerAddr)
-	m.NetworkUpgrades.Encode(buf)
 }
 
 // Decode deserializes InitializeRequest from the reader
@@ -194,10 +104,8 @@ func (m *InitializeRequest) Decode(r *Reader) error {
 	if m.DBServerAddr, err = r.ReadString(); err != nil {
 		return err
 	}
-	if m.ServerAddr, err = r.ReadString(); err != nil {
-		return err
-	}
-	return m.NetworkUpgrades.Decode(r)
+	m.ServerAddr, err = r.ReadString()
+	return err
 }
 
 // InitializeResponse contains initialization results
