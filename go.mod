@@ -26,7 +26,6 @@ require (
 	github.com/luxfi/codec v1.1.3 // indirect
 	github.com/luxfi/compress v0.0.5 // indirect
 	github.com/luxfi/concurrent v0.0.3 // indirect
-	github.com/luxfi/const v1.4.1 // indirect
 	github.com/luxfi/constants v1.4.3 // indirect
 	github.com/luxfi/container v0.0.4 // indirect
 	github.com/luxfi/crypto v1.19.0 // indirect
