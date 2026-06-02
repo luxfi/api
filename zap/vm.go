@@ -7,14 +7,14 @@ package zap
 type State uint8
 
 const (
-	StateUnknown      State = 0
-	StateStarting     State = 1
-	StateSyncing      State = 2
+	StateUnknown       State = 0
+	StateStarting      State = 1
+	StateSyncing       State = 2
 	StateBootstrapping State = 3
-	StateReady        State = 4
-	StateDegraded     State = 5
-	StateStopping     State = 6
-	StateStopped      State = 7
+	StateReady         State = 4
+	StateDegraded      State = 5
+	StateStopping      State = 6
+	StateStopped       State = 7
 )
 
 // Error represents VM errors
