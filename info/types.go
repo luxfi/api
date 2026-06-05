@@ -5,12 +5,30 @@ package info
 
 import (
 	"net/netip"
+	"time"
 
 	"github.com/luxfi/api/types"
 	"github.com/luxfi/ids"
 	"github.com/luxfi/math/set"
-	"github.com/luxfi/p2p/peer"
 )
+
+// PeerInfo is the JSON wire shape for a peer in the Peers RPC reply. It is
+// the local owner of this shape; previously this type came from
+// github.com/luxfi/p2p/peer.Info, but that module is being archived per
+// LP-201. Field tags are stable across the rename — JSON consumers see no
+// difference.
+type PeerInfo struct {
+	IP             netip.AddrPort  `json:"ip"`
+	PublicIP       netip.AddrPort  `json:"publicIP,omitempty"`
+	ID             ids.NodeID      `json:"nodeID"`
+	Version        string          `json:"version"`
+	LastSent       time.Time       `json:"lastSent"`
+	LastReceived   time.Time       `json:"lastReceived"`
+	ObservedUptime types.Uint32    `json:"observedUptime"`
+	TrackedChains  set.Set[ids.ID] `json:"trackedChains"`
+	SupportedLPs   set.Set[uint32] `json:"supportedLPs"`
+	ObjectedLPs    set.Set[uint32] `json:"objectedLPs"`
+}
 
 // ProofOfPossession is a JSON-friendly representation of a BLS PoP.
 type ProofOfPossession struct {
@@ -88,7 +106,7 @@ type PeersArgs struct {
 
 // Peer is information about a peer in the network.
 type Peer struct {
-	peer.Info
+	PeerInfo
 
 	Benched []string `json:"benched"`
 }
