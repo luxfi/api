@@ -53,8 +53,8 @@ type GetNodeVersionReply struct {
 // callers don't have to scrape the boot logs to learn whether Quasar is in
 // triple/dual/classical mode.
 type ConsensusInfo struct {
-	// Mode is one of "triple" (BLS + Ringtail + ML-DSA), "dual" (BLS +
-	// Ringtail), or "classical" (BLS only). Free-form so future modes
+	// Mode is one of "triple" (BLS + Corona + ML-DSA), "dual" (BLS +
+	// Corona), or "classical" (BLS only). Free-form so future modes
 	// don't bump the API version.
 	Mode string `json:"mode"`
 	// BLS is always true for production Quasar nodes.
