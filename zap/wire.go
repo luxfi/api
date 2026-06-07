@@ -304,6 +304,22 @@ func (r *Reader) Remaining() int {
 	return len(r.data) - r.offset
 }
 
+// ReadCount reads a uint32 element count and rejects any value larger than the
+// number of unread bytes. Every element costs at least one byte on the wire, so
+// a count exceeding Remaining() can never be satisfied by the payload. Rejecting
+// it here stops a hostile count (e.g. 0xFFFFFFFF) from driving a huge
+// make([]T, count) allocation before the per-element decode loop reaches EOF.
+func (r *Reader) ReadCount() (uint32, error) {
+	n, err := r.ReadUint32()
+	if err != nil {
+		return 0, err
+	}
+	if uint64(n) > uint64(r.Remaining()) {
+		return 0, ErrInvalidMessage
+	}
+	return n, nil
+}
+
 // WriteMessage writes a complete ZAP message with header
 func WriteMessage(w io.Writer, msgType MessageType, payload []byte) error {
 	if len(payload) > MaxMessageSize {
