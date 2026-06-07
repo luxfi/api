@@ -425,7 +425,7 @@ func (m *BatchedParseBlockRequest) Encode(buf *Buffer) {
 
 // Decode deserializes BatchedParseBlockRequest from the reader
 func (m *BatchedParseBlockRequest) Decode(r *Reader) error {
-	count, err := r.ReadUint32()
+	count, err := r.ReadCount()
 	if err != nil {
 		return err
 	}
@@ -453,7 +453,7 @@ func (m *BatchedParseBlockResponse) Encode(buf *Buffer) {
 
 // Decode deserializes BatchedParseBlockResponse from the reader
 func (m *BatchedParseBlockResponse) Decode(r *Reader) error {
-	count, err := r.ReadUint32()
+	count, err := r.ReadCount()
 	if err != nil {
 		return err
 	}
@@ -513,7 +513,7 @@ func (m *GetAncestorsResponse) Encode(buf *Buffer) {
 
 // Decode deserializes GetAncestorsResponse from the reader
 func (m *GetAncestorsResponse) Decode(r *Reader) error {
-	count, err := r.ReadUint32()
+	count, err := r.ReadCount()
 	if err != nil {
 		return err
 	}
@@ -821,7 +821,7 @@ func (m *CreateHandlersResponse) Encode(buf *Buffer) {
 
 // Decode deserializes CreateHandlersResponse from the reader
 func (m *CreateHandlersResponse) Decode(r *Reader) error {
-	count, err := r.ReadUint32()
+	count, err := r.ReadCount()
 	if err != nil {
 		return err
 	}

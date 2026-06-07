@@ -22,7 +22,7 @@ func (m *SendRequestMsg) Encode(buf *Buffer) {
 
 // Decode deserializes SendRequestMsg from the reader
 func (m *SendRequestMsg) Decode(r *Reader) error {
-	count, err := r.ReadUint32()
+	count, err := r.ReadCount()
 	if err != nil {
 		return err
 	}
@@ -121,7 +121,7 @@ func (m *SendGossipMsg) Encode(buf *Buffer) {
 
 // Decode deserializes SendGossipMsg from the reader
 func (m *SendGossipMsg) Decode(r *Reader) error {
-	count, err := r.ReadUint32()
+	count, err := r.ReadCount()
 	if err != nil {
 		return err
 	}
