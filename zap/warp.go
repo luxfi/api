@@ -106,7 +106,7 @@ func (r *WarpBatchSignRequest) Encode(buf *Buffer) {
 
 // Decode reads the request from the reader
 func (r *WarpBatchSignRequest) Decode(rd *Reader) error {
-	count, err := rd.ReadUint32()
+	count, err := rd.ReadCount()
 	if err != nil {
 		return err
 	}
@@ -139,7 +139,7 @@ func (r *WarpBatchSignResponse) Encode(buf *Buffer) {
 
 // Decode reads the response from the reader
 func (r *WarpBatchSignResponse) Decode(rd *Reader) error {
-	sigCount, err := rd.ReadUint32()
+	sigCount, err := rd.ReadCount()
 	if err != nil {
 		return err
 	}
@@ -150,7 +150,7 @@ func (r *WarpBatchSignResponse) Decode(rd *Reader) error {
 			return err
 		}
 	}
-	errCount, err := rd.ReadUint32()
+	errCount, err := rd.ReadCount()
 	if err != nil {
 		return err
 	}
