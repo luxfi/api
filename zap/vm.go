@@ -39,7 +39,7 @@ type InitializeRequest struct {
 	PublicKey    []byte
 	XChainID     []byte
 	CChainID     []byte
-	LuxAssetID   []byte
+	UTXOAssetID  []byte
 	ChainDataDir string
 	GenesisBytes []byte
 	UpgradeBytes []byte
@@ -56,7 +56,7 @@ func (m *InitializeRequest) Encode(buf *Buffer) {
 	buf.WriteBytes(m.PublicKey)
 	buf.WriteBytes(m.XChainID)
 	buf.WriteBytes(m.CChainID)
-	buf.WriteBytes(m.LuxAssetID)
+	buf.WriteBytes(m.UTXOAssetID)
 	buf.WriteString(m.ChainDataDir)
 	buf.WriteBytes(m.GenesisBytes)
 	buf.WriteBytes(m.UpgradeBytes)
@@ -86,7 +86,7 @@ func (m *InitializeRequest) Decode(r *Reader) error {
 	if m.CChainID, err = r.ReadBytes(); err != nil {
 		return err
 	}
-	if m.LuxAssetID, err = r.ReadBytes(); err != nil {
+	if m.UTXOAssetID, err = r.ReadBytes(); err != nil {
 		return err
 	}
 	if m.ChainDataDir, err = r.ReadString(); err != nil {
