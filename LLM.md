@@ -1,4 +1,4 @@
-# LLM.md - Hanzo Api
+# Hanzo Api
 
 ## Overview
 Go module: github.com/luxfi/api
