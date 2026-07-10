@@ -115,7 +115,24 @@ type InitializeResponse struct {
 	Height               uint64
 	Bytes                []byte
 	Timestamp            int64
+	// Capabilities is a bitfield of OPTIONAL cross-boundary add-ons the VM
+	// implements (see the Cap* constants). The node reads it once at handshake
+	// to decide which add-ons to wire; an unset bit → the node treats that
+	// capability as absent and stays on the generic path.
+	Capabilities uint64
 }
+
+// VM capability bits advertised in InitializeResponse.Capabilities. A VM sets a
+// bit to tell the node it implements the corresponding OPTIONAL add-on that is
+// NOT part of the generic ChainVM contract. Discovered at the handshake, never
+// braided into ChainVM — generic VMs leave every bit clear.
+const (
+	// CapQuasarExport: the VM tracks a Quasar (⅔-by-stake) EXPORT-FINAL height
+	// distinct from its reorgable local accept tip, and answers
+	// MsgSetQuasarFinalized / MsgQuasarHeight. Set by the C-Chain EVM; the node
+	// wires the consensus export-frontier observer only when this bit is set.
+	CapQuasarExport uint64 = 1 << 0
+)
 
 // Encode serializes InitializeResponse to the buffer
 func (m *InitializeResponse) Encode(buf *Buffer) {
@@ -124,6 +141,7 @@ func (m *InitializeResponse) Encode(buf *Buffer) {
 	buf.WriteUint64(m.Height)
 	buf.WriteBytes(m.Bytes)
 	buf.WriteInt64(m.Timestamp)
+	buf.WriteUint64(m.Capabilities)
 }
 
 // Decode deserializes InitializeResponse from the reader
@@ -141,7 +159,10 @@ func (m *InitializeResponse) Decode(r *Reader) error {
 	if m.Bytes, err = r.ReadBytes(); err != nil {
 		return err
 	}
-	m.Timestamp, err = r.ReadInt64()
+	if m.Timestamp, err = r.ReadInt64(); err != nil {
+		return err
+	}
+	m.Capabilities, err = r.ReadUint64()
 	return err
 }
 
@@ -848,5 +869,43 @@ func (m *NewHTTPHandlerResponse) Encode(buf *Buffer) {
 func (m *NewHTTPHandlerResponse) Decode(r *Reader) error {
 	var err error
 	m.ServerAddr, err = r.ReadString()
+	return err
+}
+
+// SetQuasarFinalizedRequest carries a new Quasar (⅔-by-stake) EXPORT-FINAL height
+// from the node's consensus export-frontier observer to the VM (MsgSetQuasarFinalized).
+// The VM persists it; the response is empty.
+type SetQuasarFinalizedRequest struct {
+	Height uint64
+}
+
+// Encode serializes SetQuasarFinalizedRequest to the buffer
+func (m *SetQuasarFinalizedRequest) Encode(buf *Buffer) {
+	buf.WriteUint64(m.Height)
+}
+
+// Decode deserializes SetQuasarFinalizedRequest from the reader
+func (m *SetQuasarFinalizedRequest) Decode(r *Reader) error {
+	var err error
+	m.Height, err = r.ReadUint64()
+	return err
+}
+
+// QuasarHeightResponse carries the VM's current accept-tip-CLAMPED Quasar
+// EXPORT-FINAL height (MsgQuasarHeight) — 0 before the first export forms. The
+// MsgQuasarHeight request has no fields (empty payload).
+type QuasarHeightResponse struct {
+	Height uint64
+}
+
+// Encode serializes QuasarHeightResponse to the buffer
+func (m *QuasarHeightResponse) Encode(buf *Buffer) {
+	buf.WriteUint64(m.Height)
+}
+
+// Decode deserializes QuasarHeightResponse from the reader
+func (m *QuasarHeightResponse) Decode(r *Reader) error {
+	var err error
+	m.Height, err = r.ReadUint64()
 	return err
 }
