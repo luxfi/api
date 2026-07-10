@@ -75,6 +75,16 @@ const (
 	MsgWarpGetPublicKey MessageType = 51
 	MsgWarpBatchSign    MessageType = 52
 
+	// Quasar EXPORT methods (60-63): the two-tier consensus (v1.36) export
+	// frontier — Quasar = ⅔-by-stake, the reorg-safe finality a VM's
+	// `finalized`/`safe` tags and cross-chain (warp) export gate must resolve
+	// to instead of the reorgable Nova accept tip — carried across the plugin
+	// process boundary. OPTIONAL: only a VM that advertises CapQuasarExport in
+	// the Initialize handshake (see vm.go) is ever sent these; a generic VM is
+	// never asked. Kept < 0x40 so the response/error flags OR in cleanly.
+	MsgSetQuasarFinalized MessageType = 60
+	MsgQuasarHeight       MessageType = 61
+
 	// Response flag - set on response messages (bit 7 / high bit).
 	// All message types must be < 64 (0x40) to allow OR with this flag
 	// AND with MsgErrorFlag below.
