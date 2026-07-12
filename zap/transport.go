@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -66,19 +67,40 @@ type response struct {
 	err     error
 }
 
-// Dial connects to a ZAP server
+// Dial connects to a ZAP server. The network transport is inferred from addr:
+// a filesystem path ("/tmp/vm.sock", "@abstract", or anything containing no
+// ':' host:port) dials a unix-domain socket — no TCP/UDP stack, the in-proc /
+// same-host fast path; a "host:port" addr dials TCP for a genuinely remote
+// server. Backward compatible: existing "127.0.0.1:port" addrs still dial tcp.
 func Dial(ctx context.Context, addr string, config *Config) (*Conn, error) {
 	if config == nil {
 		config = DefaultConfig()
 	}
 
 	dialer := &net.Dialer{}
-	conn, err := dialer.DialContext(ctx, "tcp", addr)
+	conn, err := dialer.DialContext(ctx, transportNetwork(addr), addr)
 	if err != nil {
 		return nil, fmt.Errorf("zap: dial failed: %w", err)
 	}
 
 	return newConn(conn, config), nil
+}
+
+// transportNetwork infers the net.Dial/net.Listen network from an address:
+// unix-domain socket for a filesystem/abstract path (same-host, no TCP stack),
+// tcp for a host:port. A ':' with no '/' means host:port ⇒ tcp; anything that
+// looks like a path ('/', leading '@' abstract socket, or no ':') ⇒ unix.
+func transportNetwork(addr string) string {
+	if strings.HasPrefix(addr, "@") || strings.HasPrefix(addr, "/") {
+		return "unix"
+	}
+	if strings.Contains(addr, ":") && !strings.Contains(addr, "/") {
+		return "tcp"
+	}
+	if strings.Contains(addr, "/") {
+		return "unix"
+	}
+	return "tcp"
 }
 
 // NewConn wraps an existing net.Conn as a ZAP connection
@@ -247,7 +269,7 @@ func Listen(addr string, config *Config) (*Listener, error) {
 		config = DefaultConfig()
 	}
 
-	listener, err := net.Listen("tcp", addr)
+	listener, err := net.Listen(transportNetwork(addr), addr)
 	if err != nil {
 		return nil, fmt.Errorf("zap: listen failed: %w", err)
 	}
