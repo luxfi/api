@@ -3,10 +3,10 @@ module github.com/luxfi/api
 go 1.26.4
 
 require (
-	github.com/luxfi/consensus v1.22.85
-	github.com/luxfi/formatting v1.0.1
-	github.com/luxfi/ids v1.2.15
-	github.com/luxfi/math v1.4.0
+	github.com/luxfi/consensus v1.36.2
+	github.com/luxfi/formatting v1.1.1
+	github.com/luxfi/ids v1.3.2
+	github.com/luxfi/math v1.5.1
 )
 
 require (
@@ -17,24 +17,24 @@ require (
 	github.com/holiman/uint256 v1.3.2 // indirect
 	github.com/klauspost/compress v1.18.5 // indirect
 	github.com/luxfi/accel v1.2.2 // indirect
-	github.com/luxfi/cache v1.2.1 // indirect
-	github.com/luxfi/compress v0.0.5 // indirect
-	github.com/luxfi/concurrent v0.0.3 // indirect
-	github.com/luxfi/constants v1.4.7 // indirect
-	github.com/luxfi/container v0.0.4 // indirect
-	github.com/luxfi/crypto v1.19.3 // indirect
-	github.com/luxfi/database v1.17.44 // indirect
-	github.com/luxfi/geth v1.16.98 // indirect
+	github.com/luxfi/cache v1.3.1 // indirect
+	github.com/luxfi/compress v0.1.1 // indirect
+	github.com/luxfi/concurrent v0.1.1 // indirect
+	github.com/luxfi/constants v1.6.2 // indirect
+	github.com/luxfi/container v0.2.1 // indirect
+	github.com/luxfi/crypto v1.20.2 // indirect
+	github.com/luxfi/database v1.21.1 // indirect
+	github.com/luxfi/geth v1.20.1 // indirect
 	github.com/luxfi/log v1.4.1 // indirect
 	github.com/luxfi/math/big v0.1.0 // indirect
-	github.com/luxfi/metric v1.5.1 // indirect
+	github.com/luxfi/metric v1.8.1 // indirect
 	github.com/luxfi/mock v0.1.1 // indirect
-	github.com/luxfi/p2p v1.21.1 // indirect
+	github.com/luxfi/p2p v1.22.1 // indirect
 	github.com/luxfi/pq v1.0.3 // indirect
 	github.com/luxfi/sampler v1.1.0 // indirect
-	github.com/luxfi/validators v1.0.0 // indirect
+	github.com/luxfi/validators v1.3.1 // indirect
 	github.com/luxfi/version v1.0.1 // indirect
-	github.com/luxfi/warp v1.19.2 // indirect
+	github.com/luxfi/warp v1.24.1 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mr-tron/base58 v1.2.0 // indirect
