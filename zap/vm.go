@@ -144,7 +144,23 @@ func (m *InitializeResponse) Encode(buf *Buffer) {
 	buf.WriteUint64(m.Capabilities)
 }
 
-// Decode deserializes InitializeResponse from the reader
+// Decode deserializes InitializeResponse from the reader.
+//
+// LENGTH-TOLERANT trailing field. Capabilities is OPTIONAL on the wire: it was
+// APPENDED in api v1.0.16 (the Quasar-export handshake) WITHOUT bumping
+// version.RPCChainVMProtocol, so a peer built before it — a stale VM plugin —
+// sends a payload that ends right after Timestamp. Guarding the read on
+// Remaining() lets a newer decoder read that short payload as "Capabilities = 0"
+// (Nova-only, no optional add-ons) instead of failing with io.ErrUnexpectedEOF —
+// exactly the v1.36.11 skew that broke every EVM Initialize with
+// "zap decode initialize response: unexpected EOF". The mirror case (an OLDER
+// decoder reading a NEWER payload) already works: a length-prefixed ZAP frame
+// lets the old decoder stop after Timestamp and ignore the trailing bytes.
+//
+// EVOLUTION RULE: any FUTURE field is appended AFTER Capabilities and read the
+// same way — guard each read on Remaining(), and keep Encode writing fields in
+// this exact order. Never insert or reorder a field in the middle: that is a
+// breaking wire change and MUST bump version.RPCChainVMProtocol.
 func (m *InitializeResponse) Decode(r *Reader) error {
 	var err error
 	if m.LastAcceptedID, err = r.ReadBytes(); err != nil {
@@ -162,8 +178,16 @@ func (m *InitializeResponse) Decode(r *Reader) error {
 	if m.Timestamp, err = r.ReadInt64(); err != nil {
 		return err
 	}
-	m.Capabilities, err = r.ReadUint64()
-	return err
+	// OPTIONAL trailing field: absent from pre-v1.0.16 peers. Remaining() < 8
+	// (a uint64 is 8 bytes) ⇒ leave Capabilities at its zero value rather than
+	// EOF. A count of exactly 8 (or more, from an even-newer peer with further
+	// appended fields) ⇒ read it and ignore anything past it.
+	if r.Remaining() >= 8 {
+		if m.Capabilities, err = r.ReadUint64(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // SetStateRequest contains state change request.
