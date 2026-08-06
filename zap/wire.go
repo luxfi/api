@@ -64,6 +64,24 @@ const (
 	MsgBlockReject
 	MsgStateSummaryAccept // = 31
 
+	// Atomic shared-memory methods (32-39). The cross-chain atomic import/
+	// export primitive (the SAME one platformvm and the dexvm use) lives in the
+	// NODE process — one atomic.Memory per node, shared by every chain. A VM
+	// hosted OUT of process (the C-Chain EVM, the dexvm) therefore cannot reach
+	// it through its Runtime, which is why these exist.
+	//
+	// DIRECTION: unlike every other message in this file, these travel
+	// plugin->node. The plugin DIALS a per-chain ZAP server the node binds
+	// before Initialize and names in InitializeRequest.AtomicServerAddr — the
+	// SAME shape as DBServerAddr. The node is the server; the transport stays
+	// strictly request/response and needs no duplex.
+	//
+	// SCOPE: Get and Apply only. SharedMemory.Indexed is deliberately NOT
+	// proxied — no settlement path calls it, and an unused wire surface is a
+	// liability, not a feature.
+	MsgAtomicGet   MessageType = 32
+	MsgAtomicApply MessageType = 33
+
 	// p2p.Sender methods (40-49)
 	MsgSendRequest  MessageType = 40
 	MsgSendResponse MessageType = 41
