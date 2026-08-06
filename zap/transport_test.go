@@ -6,6 +6,7 @@ package zap
 import (
 	"bytes"
 	"context"
+	"net"
 	"sync"
 	"testing"
 	"time"
@@ -211,4 +212,68 @@ func BenchmarkRoundTripLargeBlock(b *testing.B) {
 
 	cancel()
 	server.Close()
+}
+
+// gatedListener hands out exactly one connection, and only after release is
+// closed. It makes the Close/Accept interleaving deterministic instead of
+// hoping a real socket race reproduces.
+type gatedListener struct {
+	entered  chan struct{} // closed once Serve is parked inside Accept
+	release  chan struct{}
+	accepted bool
+	conn     net.Conn
+}
+
+func (l *gatedListener) Accept() (net.Conn, error) {
+	if l.accepted {
+		return nil, net.ErrClosed
+	}
+	close(l.entered)
+	<-l.release
+	l.accepted = true
+	return l.conn, nil
+}
+func (l *gatedListener) Close() error   { return nil }
+func (l *gatedListener) Addr() net.Addr { return l.conn.LocalAddr() }
+
+// TestServer_AcceptAfterCloseDoesNotPanic pins a shutdown race that killed the
+// whole process. Close() nils the conns map under s.mu; Serve's accept loop then
+// assigned into that nil map and panicked. Serve runs on a detached goroutine,
+// so the panic was fatal rather than returned to anyone. Every server whose stop
+// path is "cancel then Close" while a connection is in flight could hit it —
+// which includes the node's per-chain rpcdb and atomic shared-memory servers.
+//
+// The interleaving is forced, not raced: Serve is parked inside Accept, Close
+// runs to completion, and only then does Accept yield a connection.
+func TestServer_AcceptAfterCloseDoesNotPanic(t *testing.T) {
+	client, server := net.Pipe()
+	defer client.Close()
+	defer server.Close()
+
+	l := &gatedListener{entered: make(chan struct{}), release: make(chan struct{}), conn: server}
+	srv := NewServer(NewListener(l, DefaultConfig()), HandlerFunc(
+		func(_ context.Context, msgType MessageType, _ []byte) (MessageType, []byte, error) {
+			return msgType, nil, nil
+		}))
+
+	served := make(chan error, 1)
+	go func() { served <- srv.Serve(context.Background()) }()
+
+	// Wait until Serve is genuinely parked inside Accept — otherwise it may see
+	// the closed done channel at the top of the loop and return before ever
+	// reaching the assignment this test is about.
+	<-l.entered
+	// Close first: conns becomes nil.
+	srv.Close()
+	// Now let Accept deliver a connection into the closed server.
+	close(l.release)
+
+	select {
+	case err := <-served:
+		if err != nil {
+			t.Fatalf("Serve returned %v, want nil after Close", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("Serve did not return after Close")
+	}
 }
