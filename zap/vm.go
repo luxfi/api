@@ -46,6 +46,29 @@ type InitializeRequest struct {
 	ConfigBytes  []byte
 	DBServerAddr string
 	ServerAddr   string
+
+	// AtomicServerAddr is the address of a ZAP server the node bound over THIS
+	// chain's atomic shared-memory handle before calling Initialize. A plugin
+	// dials it to reach the primary network's cross-chain import/export
+	// primitive, which cannot be copied into the plugin's rebuilt Runtime
+	// because it is an interface over a live database the node owns. Same shape
+	// and lifetime as DBServerAddr.
+	//
+	// Empty means the node wired no shared memory for this chain. The plugin
+	// MUST then leave Runtime.SharedMemory nil so a settlement precompile
+	// reverts fail-closed rather than fabricate value.
+	AtomicServerAddr string
+
+	// DChainID is the D-Chain (dexvm) blockchain id, resolved node-side from the
+	// chain alias "D". It rides here because the plugin's Runtime has no
+	// BCLookup — that field is an interface onto the node's chain manager and,
+	// like SharedMemory, does not survive the boundary. The DEX settlement seam
+	// needs exactly one alias resolved, so the resolved ID is carried instead of
+	// proxying a whole lookup service.
+	//
+	// Empty means the network has no dexvm deployed; the settlement seam then
+	// stays closed rather than guess a peer.
+	DChainID []byte
 }
 
 // Encode serializes InitializeRequest to the buffer
@@ -63,9 +86,29 @@ func (m *InitializeRequest) Encode(buf *Buffer) {
 	buf.WriteBytes(m.ConfigBytes)
 	buf.WriteString(m.DBServerAddr)
 	buf.WriteString(m.ServerAddr)
+	// OPTIONAL trailing fields — see the EVOLUTION RULE on InitializeResponse.
+	// Appended, never inserted, so an older decoder stops after ServerAddr and
+	// ignores these bytes.
+	buf.WriteString(m.AtomicServerAddr)
+	buf.WriteBytes(m.DChainID)
 }
 
-// Decode deserializes InitializeRequest from the reader
+// Decode deserializes InitializeRequest from the reader.
+//
+// LENGTH-TOLERANT trailing fields, the same contract InitializeResponse.Decode
+// documents. AtomicServerAddr and DChainID were APPENDED for the cross-chain
+// atomic seam without bumping version.RPCChainVMProtocol, so both skew
+// directions stay safe:
+//
+//   - NEW node -> OLD plugin: the old decoder stops after ServerAddr and ignores
+//     the trailing bytes (ZAP frames are length-prefixed). The plugin keeps its
+//     nil SharedMemory and its settlements keep reverting fail-closed — the
+//     behavior it already had, never a silent divergence.
+//   - OLD node -> NEW plugin: Remaining() is 0 at these reads, so both fields
+//     stay zero-valued and the plugin treats the atomic capability as absent.
+//
+// Neither direction changes how any block executes, which is what makes this
+// safe to roll one validator at a time.
 func (m *InitializeRequest) Decode(r *Reader) error {
 	var err error
 	if m.NetworkID, err = r.ReadUint32(); err != nil {
@@ -104,8 +147,23 @@ func (m *InitializeRequest) Decode(r *Reader) error {
 	if m.DBServerAddr, err = r.ReadString(); err != nil {
 		return err
 	}
-	m.ServerAddr, err = r.ReadString()
-	return err
+	if m.ServerAddr, err = r.ReadString(); err != nil {
+		return err
+	}
+	// OPTIONAL trailing fields. A length-prefixed field costs at least its
+	// 4-byte count, so Remaining() < 4 ⇒ the peer predates this field; leave it
+	// zero-valued instead of returning io.ErrUnexpectedEOF.
+	if r.Remaining() >= 4 {
+		if m.AtomicServerAddr, err = r.ReadString(); err != nil {
+			return err
+		}
+	}
+	if r.Remaining() >= 4 {
+		if m.DChainID, err = r.ReadBytes(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // InitializeResponse contains initialization results
