@@ -76,11 +76,15 @@ const (
 	// SAME shape as DBServerAddr. The node is the server; the transport stays
 	// strictly request/response and needs no duplex.
 	//
-	// SCOPE: Get and Apply only. SharedMemory.Indexed is deliberately NOT
-	// proxied — no settlement path calls it, and an unused wire surface is a
-	// liability, not a feature.
-	MsgAtomicGet   MessageType = 32
-	MsgAtomicApply MessageType = 33
+	// SCOPE: the whole SharedMemory interface — Get, Indexed, Apply. Indexed
+	// looks superfluous from the C-Chain side (no settlement path calls it), but
+	// the D-Chain's autonomous seam drive is built on it: it enumerates pending
+	// C->D intents by trait inside BuildBlock, because a shared-memory object is
+	// not self-identifying and cannot otherwise be discovered without already
+	// knowing its owner. Omitting it would leave D unable to find any intent.
+	MsgAtomicGet     MessageType = 32
+	MsgAtomicApply   MessageType = 33
+	MsgAtomicIndexed MessageType = 34
 
 	// p2p.Sender methods (40-49)
 	MsgSendRequest  MessageType = 40

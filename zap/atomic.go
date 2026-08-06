@@ -95,6 +95,97 @@ func (m *AtomicGetResponse) Decode(r *Reader) error {
 	return nil
 }
 
+// AtomicIndexedRequest is SharedMemory.Indexed — a paginated walk of the objects
+// a peer chain published that carry any of the given traits.
+//
+// It exists on this wire for exactly one caller: the D-Chain's autonomous seam
+// drive, which enumerates pending C->D intents by a fixed discovery trait inside
+// BuildBlock. A shared-memory object does not carry its own key in its value, so
+// the drive recovers keys through the LastKey cursor rather than by parsing
+// values — which is why LastTrait/LastKey are part of the response and not an
+// optimization.
+type AtomicIndexedRequest struct {
+	PeerChainID []byte
+	Traits      [][]byte
+	StartTrait  []byte
+	StartKey    []byte
+	Limit       uint32
+}
+
+// Encode serializes AtomicIndexedRequest to the buffer
+func (m *AtomicIndexedRequest) Encode(buf *Buffer) {
+	buf.WriteBytes(m.PeerChainID)
+	buf.WriteUint32(uint32(len(m.Traits)))
+	for _, t := range m.Traits {
+		buf.WriteBytes(t)
+	}
+	buf.WriteBytes(m.StartTrait)
+	buf.WriteBytes(m.StartKey)
+	buf.WriteUint32(m.Limit)
+}
+
+// Decode deserializes AtomicIndexedRequest from the reader
+func (m *AtomicIndexedRequest) Decode(r *Reader) error {
+	var err error
+	if m.PeerChainID, err = r.ReadBytes(); err != nil {
+		return err
+	}
+	count, err := r.ReadCount()
+	if err != nil {
+		return err
+	}
+	m.Traits = make([][]byte, count)
+	for i := uint32(0); i < count; i++ {
+		if m.Traits[i], err = r.ReadBytes(); err != nil {
+			return err
+		}
+	}
+	if m.StartTrait, err = r.ReadBytes(); err != nil {
+		return err
+	}
+	if m.StartKey, err = r.ReadBytes(); err != nil {
+		return err
+	}
+	m.Limit, err = r.ReadUint32()
+	return err
+}
+
+// AtomicIndexedResponse carries one page plus the cursor to resume from.
+type AtomicIndexedResponse struct {
+	Values    [][]byte
+	LastTrait []byte
+	LastKey   []byte
+}
+
+// Encode serializes AtomicIndexedResponse to the buffer
+func (m *AtomicIndexedResponse) Encode(buf *Buffer) {
+	buf.WriteUint32(uint32(len(m.Values)))
+	for _, v := range m.Values {
+		buf.WriteBytes(v)
+	}
+	buf.WriteBytes(m.LastTrait)
+	buf.WriteBytes(m.LastKey)
+}
+
+// Decode deserializes AtomicIndexedResponse from the reader
+func (m *AtomicIndexedResponse) Decode(r *Reader) error {
+	count, err := r.ReadCount()
+	if err != nil {
+		return err
+	}
+	m.Values = make([][]byte, count)
+	for i := uint32(0); i < count; i++ {
+		if m.Values[i], err = r.ReadBytes(); err != nil {
+			return err
+		}
+	}
+	if m.LastTrait, err = r.ReadBytes(); err != nil {
+		return err
+	}
+	m.LastKey, err = r.ReadBytes()
+	return err
+}
+
 // AtomicElement is one published cross-chain object: the value stored under Key,
 // plus the traits it is indexed by. Mirrors atomic.Element field-for-field.
 type AtomicElement struct {

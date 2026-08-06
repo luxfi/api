@@ -450,6 +450,16 @@ func (s *Server) Serve(ctx context.Context) error {
 		}
 
 		s.mu.Lock()
+		// Close() sets conns to nil under this lock. Accept can return a
+		// connection that was already in flight when that happened, and
+		// assigning into the nil map panics the Serve goroutine — taking the
+		// whole process with it, since this runs detached. Re-check under the
+		// lock and hang up instead: after Close there is nobody left to serve.
+		if s.conns == nil {
+			s.mu.Unlock()
+			conn.Close()
+			return nil
+		}
 		s.conns[conn] = struct{}{}
 		s.mu.Unlock()
 
