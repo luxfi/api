@@ -997,3 +997,137 @@ func (m *QuasarHeightResponse) Decode(r *Reader) error {
 	m.Height, err = r.ReadUint64()
 	return err
 }
+
+// State sync over the boundary.
+//
+// A state-syncable VM is asked five questions and hands back summaries; a
+// summary is then accepted, which starts the sync. The five questions are
+// ordinary request/response. Accept is not: a summary is an object with
+// behaviour on the VM's side, and only its identity can cross. So Accept
+// travels as an id, and the server answers it against the summary it produced
+// under that id — the same shape a block takes, for the same reason.
+
+// StateSyncEnabledResponse answers whether this VM syncs state at all.
+type StateSyncEnabledResponse struct {
+	Enabled bool
+	Err     Error
+}
+
+func (m *StateSyncEnabledResponse) Encode(buf *Buffer) {
+	buf.WriteBool(m.Enabled)
+	buf.WriteUint8(uint8(m.Err))
+}
+
+func (m *StateSyncEnabledResponse) Decode(r *Reader) error {
+	var err error
+	if m.Enabled, err = r.ReadBool(); err != nil {
+		return err
+	}
+	v, err := r.ReadUint8()
+	m.Err = Error(v)
+	return err
+}
+
+// SummaryResponse carries one state summary: what a caller can read off it
+// without holding the object. Every question that answers with a summary
+// answers with this, because the answers differ only in which summary they
+// name, never in what a summary is.
+//
+// An absent summary is not an error and not a zero-valued one: Err says
+// ErrorNotFound and the caller must not read the fields. A VM that does not
+// sync state at all says ErrorStateSyncNotImplemented, which is a different
+// answer from "I sync, and have nothing".
+type SummaryResponse struct {
+	ID     []byte
+	Height uint64
+	Bytes  []byte
+	Err    Error
+}
+
+func (m *SummaryResponse) Encode(buf *Buffer) {
+	buf.WriteBytes(m.ID)
+	buf.WriteUint64(m.Height)
+	buf.WriteBytes(m.Bytes)
+	buf.WriteUint8(uint8(m.Err))
+}
+
+func (m *SummaryResponse) Decode(r *Reader) error {
+	var err error
+	if m.ID, err = r.ReadBytes(); err != nil {
+		return err
+	}
+	if m.Height, err = r.ReadUint64(); err != nil {
+		return err
+	}
+	if m.Bytes, err = r.ReadBytes(); err != nil {
+		return err
+	}
+	v, err := r.ReadUint8()
+	m.Err = Error(v)
+	return err
+}
+
+// ParseStateSummaryRequest carries a peer's summary bytes for the VM to read.
+type ParseStateSummaryRequest struct {
+	Bytes []byte
+}
+
+func (m *ParseStateSummaryRequest) Encode(buf *Buffer) { buf.WriteBytes(m.Bytes) }
+
+func (m *ParseStateSummaryRequest) Decode(r *Reader) error {
+	var err error
+	m.Bytes, err = r.ReadBytes()
+	return err
+}
+
+// GetStateSummaryRequest names the height whose summary is wanted.
+type GetStateSummaryRequest struct {
+	Height uint64
+}
+
+func (m *GetStateSummaryRequest) Encode(buf *Buffer) { buf.WriteUint64(m.Height) }
+
+func (m *GetStateSummaryRequest) Decode(r *Reader) error {
+	var err error
+	m.Height, err = r.ReadUint64()
+	return err
+}
+
+// StateSummaryAcceptRequest names the summary to accept.
+//
+// By id, because accepting is the summary's own behaviour and the summary is on
+// the far side. The server resolves the id against the summaries it has handed
+// out; an id it never produced is refused rather than reconstructed, since a
+// summary rebuilt from bytes a caller supplies is not the one that was ratified.
+type StateSummaryAcceptRequest struct {
+	ID []byte
+}
+
+func (m *StateSummaryAcceptRequest) Encode(buf *Buffer) { buf.WriteBytes(m.ID) }
+
+func (m *StateSummaryAcceptRequest) Decode(r *Reader) error {
+	var err error
+	m.ID, err = r.ReadBytes()
+	return err
+}
+
+// StateSummaryAcceptResponse reports which way the VM decided to sync.
+type StateSummaryAcceptResponse struct {
+	Mode uint8
+	Err  Error
+}
+
+func (m *StateSummaryAcceptResponse) Encode(buf *Buffer) {
+	buf.WriteUint8(m.Mode)
+	buf.WriteUint8(uint8(m.Err))
+}
+
+func (m *StateSummaryAcceptResponse) Decode(r *Reader) error {
+	var err error
+	if m.Mode, err = r.ReadUint8(); err != nil {
+		return err
+	}
+	v, err := r.ReadUint8()
+	m.Err = Error(v)
+	return err
+}
