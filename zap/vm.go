@@ -20,11 +20,17 @@ const (
 // Error represents VM errors
 type Error uint8
 
+// The zero value carries "the call succeeded" — a reply whose Err is
+// ErrorUnspecified is read as a good answer and its fields are trusted. Every
+// other value names a failure, so a failure the vocabulary has no word for
+// must reach the caller as ErrorInternal. Mapping it onto the zero instead
+// hands back a zero-valued block under the name of success.
 const (
 	ErrorUnspecified Error = iota
 	ErrorClosed
 	ErrorNotFound
 	ErrorStateSyncNotImplemented
+	ErrorInternal
 )
 
 // InitializeRequest contains initialization parameters.
