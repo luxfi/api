@@ -196,6 +196,17 @@ const (
 	// MsgSetQuasarFinalized / MsgQuasarHeight. Set by the C-Chain EVM; the node
 	// wires the consensus export-frontier observer only when this bit is set.
 	CapQuasarExport uint64 = 1 << 0
+
+	// CapStateSync: the VM can adopt a peer's state summary instead of replaying
+	// to it, and answers the six MsgStateSync*/MsgStateSummary* messages. Set by
+	// any VM implementing the syncable surface.
+	//
+	// The node needs this at the handshake because the alternative is asking and
+	// reading a refusal, and a VM that cannot answer at all is indistinguishable
+	// on the wire from one that answered "no". A node repairing a damaged chain
+	// must tell those apart: the first means find another way, the second means
+	// this VM chose to replay.
+	CapStateSync uint64 = 1 << 1
 )
 
 // Encode serializes InitializeResponse to the buffer
