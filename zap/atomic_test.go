@@ -258,3 +258,108 @@ func mustNoErr(t *testing.T, err error) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+// TestInitializeRequest_ValidatorAddrSkew pins BOTH skew directions for the
+// appended ValidatorServerAddr, because a wire field is only safe to append if
+// neither side of a partial rollout misreads the frame.
+//
+// The capability must read as ABSENT in both directions, never as present-with-
+// garbage: a plugin that thinks it has validator state but dials nothing forms a
+// committee of nobody, and a quorum of nobody signs anything.
+func TestInitializeRequest_ValidatorAddrSkew(t *testing.T) {
+	// OLD node -> NEW plugin: the payload stops after DChainID. The new decoder
+	// must leave ValidatorServerAddr empty rather than fail on EOF.
+	oldPayload := encodeToBytes(func(buf *Buffer) {
+		buf.WriteUint32(3)
+		buf.WriteBytes(bytes.Repeat([]byte{0xC1}, 32))
+		buf.WriteBytes(bytes.Repeat([]byte{0x0E}, 20))
+		buf.WriteBytes([]byte{0x01})
+		buf.WriteBytes(bytes.Repeat([]byte{0x02}, 32))
+		buf.WriteBytes(bytes.Repeat([]byte{0x03}, 32))
+		buf.WriteBytes(bytes.Repeat([]byte{0x04}, 32))
+		buf.WriteString("/data/chain")
+		buf.WriteBytes([]byte("genesis"))
+		buf.WriteBytes([]byte("upgrade"))
+		buf.WriteBytes([]byte("config"))
+		buf.WriteString("127.0.0.1:1")
+		buf.WriteString("127.0.0.1:2")
+		buf.WriteString("/tmp/atomic.sock")
+		buf.WriteBytes(bytes.Repeat([]byte{0x0D}, 32))
+	})
+	var fromOld InitializeRequest
+	if err := fromOld.Decode(NewReader(oldPayload)); err != nil {
+		t.Fatalf("new decoder on a payload without the validator field: %v", err)
+	}
+	if fromOld.ValidatorServerAddr != "" {
+		t.Fatalf("ValidatorServerAddr = %q, want empty — the capability must read ABSENT",
+			fromOld.ValidatorServerAddr)
+	}
+	if fromOld.AtomicServerAddr != "/tmp/atomic.sock" {
+		t.Fatalf("appending a field disturbed the one before it: AtomicServerAddr = %q",
+			fromOld.AtomicServerAddr)
+	}
+
+	// NEW node -> OLD plugin: the field is written last, so a decoder that stops
+	// after DChainID reads every earlier field correctly and ignores the tail.
+	in := &InitializeRequest{
+		NetworkID:           1,
+		ChainID:             bytes.Repeat([]byte{0xC1}, 32),
+		NodeID:              bytes.Repeat([]byte{0x0E}, 20),
+		XChainID:            bytes.Repeat([]byte{0x02}, 32),
+		CChainID:            bytes.Repeat([]byte{0x03}, 32),
+		UTXOAssetID:         bytes.Repeat([]byte{0x04}, 32),
+		ChainDataDir:        "/d",
+		AtomicServerAddr:    "/tmp/atomic.sock",
+		DChainID:            bytes.Repeat([]byte{0x0D}, 32),
+		ValidatorServerAddr: "/tmp/validators.sock",
+	}
+	var out InitializeRequest
+	if err := out.Decode(NewReader(encodeToBytes(in.Encode))); err != nil {
+		t.Fatalf("round trip: %v", err)
+	}
+	if out.ValidatorServerAddr != "/tmp/validators.sock" {
+		t.Fatalf("ValidatorServerAddr round trip = %q", out.ValidatorServerAddr)
+	}
+	if out.AtomicServerAddr != "/tmp/atomic.sock" || string(out.DChainID) != string(in.DChainID) {
+		t.Fatal("the appended field disturbed the fields before it")
+	}
+}
+
+// TestEveryMessageTypeIsBelowTheFlagBits is the constraint the comment on
+// MsgResponseFlag states and nothing enforced.
+//
+// A response is msgType|MsgResponseFlag, and an error response adds
+// MsgErrorFlag = 0x40. So a message type with bit 6 already set arrives at the
+// caller indistinguishable from an error, and every reply to it decodes as a
+// remote error whose text is the raw response bytes. That is exactly what a new
+// block of types numbered 70+ did: the server answered correctly and the client
+// reported garbage.
+//
+// The comment said "< 64". Reflection over the package's own declared types is
+// what makes it true.
+func TestEveryMessageTypeIsBelowTheFlagBits(t *testing.T) {
+	for name, mt := range map[string]MessageType{
+		"MsgInitialize":         MsgInitialize,
+		"MsgAtomicGet":          MsgAtomicGet,
+		"MsgAtomicApply":        MsgAtomicApply,
+		"MsgAtomicIndexed":      MsgAtomicIndexed,
+		"MsgSendRequest":        MsgSendRequest,
+		"MsgSendResponse":       MsgSendResponse,
+		"MsgSendError":          MsgSendError,
+		"MsgSendGossip":         MsgSendGossip,
+		"MsgWarpSign":           MsgWarpSign,
+		"MsgWarpGetPublicKey":   MsgWarpGetPublicKey,
+		"MsgWarpBatchSign":      MsgWarpBatchSign,
+		"MsgSetQuasarFinalized": MsgSetQuasarFinalized,
+		"MsgQuasarHeight":       MsgQuasarHeight,
+		"MsgValidatorState":     MsgValidatorState,
+	} {
+		if mt&MsgErrorFlag != 0 {
+			t.Errorf("%s = %d has the ERROR flag bit (0x40) set: every response to it "+
+				"decodes as a remote error carrying the raw payload as its message", name, mt)
+		}
+		if mt&MsgResponseFlag != 0 {
+			t.Errorf("%s = %d has the RESPONSE flag bit (0x80) set", name, mt)
+		}
+	}
+}

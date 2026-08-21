@@ -20,11 +20,17 @@ const (
 // Error represents VM errors
 type Error uint8
 
+// The zero value carries "the call succeeded" — a reply whose Err is
+// ErrorUnspecified is read as a good answer and its fields are trusted. Every
+// other value names a failure, so a failure the vocabulary has no word for
+// must reach the caller as ErrorInternal. Mapping it onto the zero instead
+// hands back a zero-valued block under the name of success.
 const (
 	ErrorUnspecified Error = iota
 	ErrorClosed
 	ErrorNotFound
 	ErrorStateSyncNotImplemented
+	ErrorInternal
 )
 
 // InitializeRequest contains initialization parameters.
@@ -59,6 +65,22 @@ type InitializeRequest struct {
 	// reverts fail-closed rather than fabricate value.
 	AtomicServerAddr string
 
+	// ValidatorServerAddr is the address of a ZAP server the node bound over its
+	// validator state before calling Initialize. A plugin dials it to learn who
+	// the validators are at a P-chain height.
+	//
+	// It rides here for the same reason AtomicServerAddr does: validator state is
+	// an interface over live node-owned state, so it cannot be copied into the
+	// plugin's rebuilt Runtime. Without it a plugin-hosted VM sees a nil handle
+	// and can form no committee — which is why M-Chain, whose whole job is a
+	// threshold ceremony among validators, could never run one.
+	//
+	// Empty means the node wired no validator state for this chain. The plugin
+	// MUST then leave Runtime.ValidatorState nil so a committee lookup fails
+	// with a clear "no committee" rather than fabricating an empty set — an
+	// empty validator set is a quorum of nobody.
+	ValidatorServerAddr string
+
 	// DChainID is the D-Chain (dexvm) blockchain id, resolved node-side from the
 	// chain alias "D". It rides here because the plugin's Runtime has no
 	// BCLookup — that field is an interface onto the node's chain manager and,
@@ -91,12 +113,14 @@ func (m *InitializeRequest) Encode(buf *Buffer) {
 	// ignores these bytes.
 	buf.WriteString(m.AtomicServerAddr)
 	buf.WriteBytes(m.DChainID)
+	buf.WriteString(m.ValidatorServerAddr)
 }
 
 // Decode deserializes InitializeRequest from the reader.
 //
 // LENGTH-TOLERANT trailing fields, the same contract InitializeResponse.Decode
-// documents. AtomicServerAddr and DChainID were APPENDED for the cross-chain
+// documents. AtomicServerAddr, DChainID and ValidatorServerAddr were APPENDED for
+// the cross-chain
 // atomic seam without bumping version.RPCChainVMProtocol, so both skew
 // directions stay safe:
 //
@@ -163,6 +187,11 @@ func (m *InitializeRequest) Decode(r *Reader) error {
 			return err
 		}
 	}
+	if r.Remaining() >= 4 {
+		if m.ValidatorServerAddr, err = r.ReadString(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -190,6 +219,17 @@ const (
 	// MsgSetQuasarFinalized / MsgQuasarHeight. Set by the C-Chain EVM; the node
 	// wires the consensus export-frontier observer only when this bit is set.
 	CapQuasarExport uint64 = 1 << 0
+
+	// CapStateSync: the VM can adopt a peer's state summary instead of replaying
+	// to it, and answers the six MsgStateSync*/MsgStateSummary* messages. Set by
+	// any VM implementing the syncable surface.
+	//
+	// The node needs this at the handshake because the alternative is asking and
+	// reading a refusal, and a VM that cannot answer at all is indistinguishable
+	// on the wire from one that answered "no". A node repairing a damaged chain
+	// must tell those apart: the first means find another way, the second means
+	// this VM chose to replay.
+	CapStateSync uint64 = 1 << 1
 )
 
 // Encode serializes InitializeResponse to the buffer
@@ -989,5 +1029,139 @@ func (m *QuasarHeightResponse) Encode(buf *Buffer) {
 func (m *QuasarHeightResponse) Decode(r *Reader) error {
 	var err error
 	m.Height, err = r.ReadUint64()
+	return err
+}
+
+// State sync over the boundary.
+//
+// A state-syncable VM is asked five questions and hands back summaries; a
+// summary is then accepted, which starts the sync. The five questions are
+// ordinary request/response. Accept is not: a summary is an object with
+// behaviour on the VM's side, and only its identity can cross. So Accept
+// travels as an id, and the server answers it against the summary it produced
+// under that id — the same shape a block takes, for the same reason.
+
+// StateSyncEnabledResponse answers whether this VM syncs state at all.
+type StateSyncEnabledResponse struct {
+	Enabled bool
+	Err     Error
+}
+
+func (m *StateSyncEnabledResponse) Encode(buf *Buffer) {
+	buf.WriteBool(m.Enabled)
+	buf.WriteUint8(uint8(m.Err))
+}
+
+func (m *StateSyncEnabledResponse) Decode(r *Reader) error {
+	var err error
+	if m.Enabled, err = r.ReadBool(); err != nil {
+		return err
+	}
+	v, err := r.ReadUint8()
+	m.Err = Error(v)
+	return err
+}
+
+// SummaryResponse carries one state summary: what a caller can read off it
+// without holding the object. Every question that answers with a summary
+// answers with this, because the answers differ only in which summary they
+// name, never in what a summary is.
+//
+// An absent summary is not an error and not a zero-valued one: Err says
+// ErrorNotFound and the caller must not read the fields. A VM that does not
+// sync state at all says ErrorStateSyncNotImplemented, which is a different
+// answer from "I sync, and have nothing".
+type SummaryResponse struct {
+	ID     []byte
+	Height uint64
+	Bytes  []byte
+	Err    Error
+}
+
+func (m *SummaryResponse) Encode(buf *Buffer) {
+	buf.WriteBytes(m.ID)
+	buf.WriteUint64(m.Height)
+	buf.WriteBytes(m.Bytes)
+	buf.WriteUint8(uint8(m.Err))
+}
+
+func (m *SummaryResponse) Decode(r *Reader) error {
+	var err error
+	if m.ID, err = r.ReadBytes(); err != nil {
+		return err
+	}
+	if m.Height, err = r.ReadUint64(); err != nil {
+		return err
+	}
+	if m.Bytes, err = r.ReadBytes(); err != nil {
+		return err
+	}
+	v, err := r.ReadUint8()
+	m.Err = Error(v)
+	return err
+}
+
+// ParseStateSummaryRequest carries a peer's summary bytes for the VM to read.
+type ParseStateSummaryRequest struct {
+	Bytes []byte
+}
+
+func (m *ParseStateSummaryRequest) Encode(buf *Buffer) { buf.WriteBytes(m.Bytes) }
+
+func (m *ParseStateSummaryRequest) Decode(r *Reader) error {
+	var err error
+	m.Bytes, err = r.ReadBytes()
+	return err
+}
+
+// GetStateSummaryRequest names the height whose summary is wanted.
+type GetStateSummaryRequest struct {
+	Height uint64
+}
+
+func (m *GetStateSummaryRequest) Encode(buf *Buffer) { buf.WriteUint64(m.Height) }
+
+func (m *GetStateSummaryRequest) Decode(r *Reader) error {
+	var err error
+	m.Height, err = r.ReadUint64()
+	return err
+}
+
+// StateSummaryAcceptRequest names the summary to accept.
+//
+// By id, because accepting is the summary's own behaviour and the summary is on
+// the far side. The server resolves the id against the summaries it has handed
+// out; an id it never produced is refused rather than reconstructed, since a
+// summary rebuilt from bytes a caller supplies is not the one that was ratified.
+type StateSummaryAcceptRequest struct {
+	ID []byte
+}
+
+func (m *StateSummaryAcceptRequest) Encode(buf *Buffer) { buf.WriteBytes(m.ID) }
+
+func (m *StateSummaryAcceptRequest) Decode(r *Reader) error {
+	var err error
+	m.ID, err = r.ReadBytes()
+	return err
+}
+
+// StateSummaryAcceptResponse reports which way the VM decided to sync.
+type StateSummaryAcceptResponse struct {
+	Mode uint8
+	Err  Error
+}
+
+func (m *StateSummaryAcceptResponse) Encode(buf *Buffer) {
+	buf.WriteUint8(m.Mode)
+	buf.WriteUint8(uint8(m.Err))
+}
+
+func (m *StateSummaryAcceptResponse) Decode(r *Reader) error {
+	var err error
+	if m.Mode, err = r.ReadUint8(); err != nil {
+		return err
+	}
+	v, err := r.ReadUint8()
+	m.Err = Error(v)
 	return err
 }
