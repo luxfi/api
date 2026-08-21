@@ -65,6 +65,22 @@ type InitializeRequest struct {
 	// reverts fail-closed rather than fabricate value.
 	AtomicServerAddr string
 
+	// ValidatorServerAddr is the address of a ZAP server the node bound over its
+	// validator state before calling Initialize. A plugin dials it to learn who
+	// the validators are at a P-chain height.
+	//
+	// It rides here for the same reason AtomicServerAddr does: validator state is
+	// an interface over live node-owned state, so it cannot be copied into the
+	// plugin's rebuilt Runtime. Without it a plugin-hosted VM sees a nil handle
+	// and can form no committee — which is why M-Chain, whose whole job is a
+	// threshold ceremony among validators, could never run one.
+	//
+	// Empty means the node wired no validator state for this chain. The plugin
+	// MUST then leave Runtime.ValidatorState nil so a committee lookup fails
+	// with a clear "no committee" rather than fabricating an empty set — an
+	// empty validator set is a quorum of nobody.
+	ValidatorServerAddr string
+
 	// DChainID is the D-Chain (dexvm) blockchain id, resolved node-side from the
 	// chain alias "D". It rides here because the plugin's Runtime has no
 	// BCLookup — that field is an interface onto the node's chain manager and,
@@ -97,12 +113,14 @@ func (m *InitializeRequest) Encode(buf *Buffer) {
 	// ignores these bytes.
 	buf.WriteString(m.AtomicServerAddr)
 	buf.WriteBytes(m.DChainID)
+	buf.WriteString(m.ValidatorServerAddr)
 }
 
 // Decode deserializes InitializeRequest from the reader.
 //
 // LENGTH-TOLERANT trailing fields, the same contract InitializeResponse.Decode
-// documents. AtomicServerAddr and DChainID were APPENDED for the cross-chain
+// documents. AtomicServerAddr, DChainID and ValidatorServerAddr were APPENDED for
+// the cross-chain
 // atomic seam without bumping version.RPCChainVMProtocol, so both skew
 // directions stay safe:
 //
@@ -166,6 +184,11 @@ func (m *InitializeRequest) Decode(r *Reader) error {
 	}
 	if r.Remaining() >= 4 {
 		if m.DChainID, err = r.ReadBytes(); err != nil {
+			return err
+		}
+	}
+	if r.Remaining() >= 4 {
+		if m.ValidatorServerAddr, err = r.ReadString(); err != nil {
 			return err
 		}
 	}
