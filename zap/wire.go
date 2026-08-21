@@ -107,6 +107,18 @@ const (
 	MsgSetQuasarFinalized MessageType = 60
 	MsgQuasarHeight       MessageType = 61
 
+	// validators.State (53). Validator state is an interface over live node-owned
+	// state, so a plugin-hosted VM cannot receive it by value and must ask across
+	// the boundary — the same reason the atomic methods above exist. M-Chain
+	// forms its threshold committee from these answers.
+	//
+	// ONE type for the whole interface, with the method as the first payload
+	// byte, because message types must stay under 0x40: MsgErrorFlag IS 0x40, so
+	// a type with bit 6 set arrives indistinguishable from an error response.
+	// validators.State has eight methods and no eight-wide run remains below the
+	// limit, so a type per method could not be spelled correctly even once.
+	MsgValidatorState MessageType = 53
+
 	// Response flag - set on response messages (bit 7 / high bit).
 	// All message types must be < 64 (0x40) to allow OR with this flag
 	// AND with MsgErrorFlag below.
