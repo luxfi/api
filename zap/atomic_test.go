@@ -324,3 +324,42 @@ func TestInitializeRequest_ValidatorAddrSkew(t *testing.T) {
 		t.Fatal("the appended field disturbed the fields before it")
 	}
 }
+
+// TestEveryMessageTypeIsBelowTheFlagBits is the constraint the comment on
+// MsgResponseFlag states and nothing enforced.
+//
+// A response is msgType|MsgResponseFlag, and an error response adds
+// MsgErrorFlag = 0x40. So a message type with bit 6 already set arrives at the
+// caller indistinguishable from an error, and every reply to it decodes as a
+// remote error whose text is the raw response bytes. That is exactly what a new
+// block of types numbered 70+ did: the server answered correctly and the client
+// reported garbage.
+//
+// The comment said "< 64". Reflection over the package's own declared types is
+// what makes it true.
+func TestEveryMessageTypeIsBelowTheFlagBits(t *testing.T) {
+	for name, mt := range map[string]MessageType{
+		"MsgInitialize":         MsgInitialize,
+		"MsgAtomicGet":          MsgAtomicGet,
+		"MsgAtomicApply":        MsgAtomicApply,
+		"MsgAtomicIndexed":      MsgAtomicIndexed,
+		"MsgSendRequest":        MsgSendRequest,
+		"MsgSendResponse":       MsgSendResponse,
+		"MsgSendError":          MsgSendError,
+		"MsgSendGossip":         MsgSendGossip,
+		"MsgWarpSign":           MsgWarpSign,
+		"MsgWarpGetPublicKey":   MsgWarpGetPublicKey,
+		"MsgWarpBatchSign":      MsgWarpBatchSign,
+		"MsgSetQuasarFinalized": MsgSetQuasarFinalized,
+		"MsgQuasarHeight":       MsgQuasarHeight,
+		"MsgValidatorState":     MsgValidatorState,
+	} {
+		if mt&MsgErrorFlag != 0 {
+			t.Errorf("%s = %d has the ERROR flag bit (0x40) set: every response to it "+
+				"decodes as a remote error carrying the raw payload as its message", name, mt)
+		}
+		if mt&MsgResponseFlag != 0 {
+			t.Errorf("%s = %d has the RESPONSE flag bit (0x80) set", name, mt)
+		}
+	}
+}
