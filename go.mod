@@ -3,6 +3,7 @@ module github.com/luxfi/api
 go 1.26.4
 
 require (
+	github.com/holiman/uint256 v1.3.2
 	github.com/luxfi/consensus v1.36.63
 	github.com/luxfi/formatting v1.1.1
 	github.com/luxfi/ids v1.3.2
@@ -16,7 +17,6 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.1 // indirect
 	github.com/gorilla/rpc v1.2.1 // indirect
 	github.com/grandcat/zeroconf v1.0.0 // indirect
-	github.com/holiman/uint256 v1.3.2 // indirect
 	github.com/klauspost/compress v1.18.6 // indirect
 	github.com/luxfi/accel v1.2.4 // indirect
 	github.com/luxfi/cache v1.3.1 // indirect
