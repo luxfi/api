@@ -12,6 +12,97 @@ import (
 	zap "github.com/zap-proto/go"
 )
 
+// ---- ConsensusInfo -----------------------------------------------------
+
+const (
+	consensusInfoModeAt       = 0
+	consensusInfoBLSAt        = 8
+	consensusInfoCoronaAt     = 9
+	consensusInfoMLDSAAt      = 10
+	consensusInfoPlatformVMAt = 11
+	consensusInfoSize         = 16
+)
+
+var _ interface {
+	MarshalZAP() ([]byte, error)
+	UnmarshalZAP([]byte) error
+} = (*ConsensusInfo)(nil)
+
+// MarshalZAP writes ConsensusInfo from constant offsets.
+func (x *ConsensusInfo) MarshalZAP() ([]byte, error) {
+	if x == nil {
+		return nil, nil
+	}
+	b := zap.NewBuilder(consensusInfoSize + 256)
+	ob := b.StartObject(consensusInfoSize)
+	ob.SetText(consensusInfoModeAt, string(x.Mode))
+	ob.SetBool(consensusInfoBLSAt, bool(x.BLS))
+	ob.SetBool(consensusInfoCoronaAt, bool(x.Corona))
+	ob.SetBool(consensusInfoMLDSAAt, bool(x.MLDSA))
+	ob.SetBool(consensusInfoPlatformVMAt, bool(x.PlatformVM))
+	ob.FinishAsRoot()
+	return b.Finish(), nil
+}
+
+// UnmarshalZAP reads ConsensusInfo out of the buffer that arrived.
+func (x *ConsensusInfo) UnmarshalZAP(data []byte) error {
+	if x == nil || len(data) == 0 {
+		return nil
+	}
+	m, err := zap.Parse(data)
+	if err != nil {
+		return fmt.Errorf("ConsensusInfo: %w", err)
+	}
+	o := m.Root()
+	x.Mode = string(strings.Clone(o.Text(consensusInfoModeAt)))
+	x.BLS = bool(o.Bool(consensusInfoBLSAt))
+	x.Corona = bool(o.Bool(consensusInfoCoronaAt))
+	x.MLDSA = bool(o.Bool(consensusInfoMLDSAAt))
+	x.PlatformVM = bool(o.Bool(consensusInfoPlatformVMAt))
+	return nil
+}
+
+// ---- FxName ------------------------------------------------------------
+
+const (
+	fxNameFxAt   = 0
+	fxNameNameAt = 32
+	fxNameSize   = 40
+)
+
+var _ interface {
+	MarshalZAP() ([]byte, error)
+	UnmarshalZAP([]byte) error
+} = (*FxName)(nil)
+
+// MarshalZAP writes FxName from constant offsets.
+func (x *FxName) MarshalZAP() ([]byte, error) {
+	if x == nil {
+		return nil, nil
+	}
+	b := zap.NewBuilder(fxNameSize + 256)
+	ob := b.StartObject(fxNameSize)
+	ob.SetBytesFixed(fxNameFxAt, x.Fx[:])
+	ob.SetText(fxNameNameAt, string(x.Name))
+	ob.FinishAsRoot()
+	return b.Finish(), nil
+}
+
+// UnmarshalZAP reads FxName out of the buffer that arrived.
+func (x *FxName) UnmarshalZAP(data []byte) error {
+	if x == nil || len(data) == 0 {
+		return nil
+	}
+	m, err := zap.Parse(data)
+	if err != nil {
+		return fmt.Errorf("FxName: %w", err)
+	}
+	o := m.Root()
+	copy(x.Fx[:], o.BytesFixed(fxNameFxAt, 32))
+	x.Name = string(strings.Clone(o.Text(fxNameNameAt)))
+	return nil
+}
+
 // ---- GetBlockchainIDArgs -----------------------------------------------
 
 const (
@@ -236,11 +327,7 @@ func (x *GetNodeIPReply) MarshalZAP() ([]byte, error) {
 	}
 	b := zap.NewBuilder(getNodeIPReplySize + 256)
 	ob := b.StartObject(getNodeIPReplySize)
-	{
-		eb := zap.NewBuilder(zap.HeaderSize)
-		eb.StartObject(0).FinishAsRoot()
-		ob.SetBytes(getNodeIPReplyIPAt, eb.Finish())
-	}
+	ob.SetText(getNodeIPReplyIPAt, string(x.IP))
 	ob.FinishAsRoot()
 	return b.Finish(), nil
 }
@@ -254,7 +341,98 @@ func (x *GetNodeIPReply) UnmarshalZAP(data []byte) error {
 	if err != nil {
 		return fmt.Errorf("GetNodeIPReply: %w", err)
 	}
-	_ = m
+	o := m.Root()
+	x.IP = types.Addr(strings.Clone(o.Text(getNodeIPReplyIPAt)))
+	return nil
+}
+
+// ---- GetNodeVersionReply -----------------------------------------------
+
+const (
+	getNodeVersionReplyVersionAt            = 0
+	getNodeVersionReplyDatabaseVersionAt    = 8
+	getNodeVersionReplyRPCProtocolVersionAt = 16
+	getNodeVersionReplyGitCommitAt          = 24
+	getNodeVersionReplyVMVersionsAt         = 32
+	getNodeVersionReplyConsensusAt          = 40
+	getNodeVersionReplySize                 = 48
+)
+
+var _ interface {
+	MarshalZAP() ([]byte, error)
+	UnmarshalZAP([]byte) error
+} = (*GetNodeVersionReply)(nil)
+
+// MarshalZAP writes GetNodeVersionReply from constant offsets.
+func (x *GetNodeVersionReply) MarshalZAP() ([]byte, error) {
+	if x == nil {
+		return nil, nil
+	}
+	b := zap.NewBuilder(getNodeVersionReplySize + 256)
+	vMVersionsAt, vMVersionsN := 0, len(x.VMVersions)
+	if vMVersionsN > 0 {
+		var blob []byte
+		for i := range x.VMVersions {
+			enc, err := x.VMVersions[i].MarshalZAP()
+			if err != nil {
+				return nil, err
+			}
+			var n [4]byte
+			binary.LittleEndian.PutUint32(n[:], uint32(len(enc)))
+			blob = append(blob, n[:]...)
+			blob = append(blob, enc...)
+		}
+		vMVersionsAt = b.WriteBytes(blob)
+	}
+	ob := b.StartObject(getNodeVersionReplySize)
+	ob.SetText(getNodeVersionReplyVersionAt, string(x.Version))
+	ob.SetText(getNodeVersionReplyDatabaseVersionAt, string(x.DatabaseVersion))
+	ob.SetUint32(getNodeVersionReplyRPCProtocolVersionAt, uint32(x.RPCProtocolVersion))
+	ob.SetText(getNodeVersionReplyGitCommitAt, string(x.GitCommit))
+	if x.Consensus != nil {
+		innerConsensus, err := x.Consensus.MarshalZAP()
+		if err != nil {
+			return nil, err
+		}
+		ob.SetBytes(getNodeVersionReplyConsensusAt, innerConsensus)
+	}
+	if vMVersionsN > 0 {
+		ob.SetList(getNodeVersionReplyVMVersionsAt, vMVersionsAt, vMVersionsN)
+	}
+	ob.FinishAsRoot()
+	return b.Finish(), nil
+}
+
+// UnmarshalZAP reads GetNodeVersionReply out of the buffer that arrived.
+func (x *GetNodeVersionReply) UnmarshalZAP(data []byte) error {
+	if x == nil || len(data) == 0 {
+		return nil
+	}
+	m, err := zap.Parse(data)
+	if err != nil {
+		return fmt.Errorf("GetNodeVersionReply: %w", err)
+	}
+	o := m.Root()
+	x.Version = string(strings.Clone(o.Text(getNodeVersionReplyVersionAt)))
+	x.DatabaseVersion = string(strings.Clone(o.Text(getNodeVersionReplyDatabaseVersionAt)))
+	x.RPCProtocolVersion = types.Uint32(o.Uint32(getNodeVersionReplyRPCProtocolVersionAt))
+	x.GitCommit = string(strings.Clone(o.Text(getNodeVersionReplyGitCommitAt)))
+	if l := o.List(getNodeVersionReplyVMVersionsAt); l.Len() > 0 {
+		rows := make(VMVersions, l.Len())
+		for i := range rows {
+			if err := rows[i].UnmarshalZAP(l.BytesAt(i)); err != nil {
+				return err
+			}
+		}
+		x.VMVersions = rows
+	}
+	if raw := o.Bytes(getNodeVersionReplyConsensusAt); len(raw) > 0 {
+		var v ConsensusInfo
+		if err := v.UnmarshalZAP(raw); err != nil {
+			return err
+		}
+		x.Consensus = &v
+	}
 	return nil
 }
 
@@ -311,6 +489,97 @@ func (x *GetTxFeeResponse) UnmarshalZAP(data []byte) error {
 	x.CreateChainTxFee = types.Uint64(o.Uint64(getTxFeeResponseCreateChainTxFeeAt))
 	x.AddNetworkValidatorFee = types.Uint64(o.Uint64(getTxFeeResponseAddNetworkValidatorFeeAt))
 	x.AddNetworkDelegatorFee = types.Uint64(o.Uint64(getTxFeeResponseAddNetworkDelegatorFeeAt))
+	return nil
+}
+
+// ---- GetVMsReply -------------------------------------------------------
+
+const (
+	getVMsReplyVMsAt = 0
+	getVMsReplyFxsAt = 8
+	getVMsReplySize  = 16
+)
+
+var _ interface {
+	MarshalZAP() ([]byte, error)
+	UnmarshalZAP([]byte) error
+} = (*GetVMsReply)(nil)
+
+// MarshalZAP writes GetVMsReply from constant offsets.
+func (x *GetVMsReply) MarshalZAP() ([]byte, error) {
+	if x == nil {
+		return nil, nil
+	}
+	b := zap.NewBuilder(getVMsReplySize + 256)
+	vMsAt, vMsN := 0, len(x.VMs)
+	if vMsN > 0 {
+		var blob []byte
+		for i := range x.VMs {
+			enc, err := x.VMs[i].MarshalZAP()
+			if err != nil {
+				return nil, err
+			}
+			var n [4]byte
+			binary.LittleEndian.PutUint32(n[:], uint32(len(enc)))
+			blob = append(blob, n[:]...)
+			blob = append(blob, enc...)
+		}
+		vMsAt = b.WriteBytes(blob)
+	}
+	fxsAt, fxsN := 0, len(x.Fxs)
+	if fxsN > 0 {
+		var blob []byte
+		for i := range x.Fxs {
+			enc, err := x.Fxs[i].MarshalZAP()
+			if err != nil {
+				return nil, err
+			}
+			var n [4]byte
+			binary.LittleEndian.PutUint32(n[:], uint32(len(enc)))
+			blob = append(blob, n[:]...)
+			blob = append(blob, enc...)
+		}
+		fxsAt = b.WriteBytes(blob)
+	}
+	ob := b.StartObject(getVMsReplySize)
+	if vMsN > 0 {
+		ob.SetList(getVMsReplyVMsAt, vMsAt, vMsN)
+	}
+	if fxsN > 0 {
+		ob.SetList(getVMsReplyFxsAt, fxsAt, fxsN)
+	}
+	ob.FinishAsRoot()
+	return b.Finish(), nil
+}
+
+// UnmarshalZAP reads GetVMsReply out of the buffer that arrived.
+func (x *GetVMsReply) UnmarshalZAP(data []byte) error {
+	if x == nil || len(data) == 0 {
+		return nil
+	}
+	m, err := zap.Parse(data)
+	if err != nil {
+		return fmt.Errorf("GetVMsReply: %w", err)
+	}
+	o := m.Root()
+	if l := o.List(getVMsReplyVMsAt); l.Len() > 0 {
+		rows := make(VMAliases, l.Len())
+		for i := range rows {
+			if err := rows[i].UnmarshalZAP(l.BytesAt(i)); err != nil {
+				return err
+			}
+		}
+		x.VMs = rows
+	}
+	if l := o.List(getVMsReplyFxsAt); l.Len() > 0 {
+		rows := make(FxNames, l.Len())
+		for i := range rows {
+			if err := rows[i].UnmarshalZAP(l.BytesAt(i)); err != nil {
+				return err
+			}
+		}
+		x.Fxs = rows
+	}
 	return nil
 }
 
@@ -390,6 +659,426 @@ func (x *IsBootstrappedResponse) UnmarshalZAP(data []byte) error {
 	return nil
 }
 
+// ---- LP ----------------------------------------------------------------
+
+const (
+	lPSupportWeightAt = 0
+	lPSupportersAt    = 8
+	lPObjectWeightAt  = 16
+	lPObjectorsAt     = 24
+	lPAbstainWeightAt = 32
+	lPSize            = 40
+)
+
+var _ interface {
+	MarshalZAP() ([]byte, error)
+	UnmarshalZAP([]byte) error
+} = (*LP)(nil)
+
+// MarshalZAP writes LP from constant offsets.
+func (x *LP) MarshalZAP() ([]byte, error) {
+	if x == nil {
+		return nil, nil
+	}
+	b := zap.NewBuilder(lPSize + 256)
+	supportersAt, supportersN := 0, len(x.Supporters)
+	if supportersN > 0 {
+		var blob []byte
+		for i := range x.Supporters {
+			enc := x.Supporters[i][:]
+			var n [4]byte
+			binary.LittleEndian.PutUint32(n[:], uint32(len(enc)))
+			blob = append(blob, n[:]...)
+			blob = append(blob, enc...)
+		}
+		supportersAt = b.WriteBytes(blob)
+	}
+	objectorsAt, objectorsN := 0, len(x.Objectors)
+	if objectorsN > 0 {
+		var blob []byte
+		for i := range x.Objectors {
+			enc := x.Objectors[i][:]
+			var n [4]byte
+			binary.LittleEndian.PutUint32(n[:], uint32(len(enc)))
+			blob = append(blob, n[:]...)
+			blob = append(blob, enc...)
+		}
+		objectorsAt = b.WriteBytes(blob)
+	}
+	ob := b.StartObject(lPSize)
+	ob.SetUint64(lPSupportWeightAt, uint64(x.SupportWeight))
+	ob.SetUint64(lPObjectWeightAt, uint64(x.ObjectWeight))
+	ob.SetUint64(lPAbstainWeightAt, uint64(x.AbstainWeight))
+	if supportersN > 0 {
+		ob.SetList(lPSupportersAt, supportersAt, supportersN)
+	}
+	if objectorsN > 0 {
+		ob.SetList(lPObjectorsAt, objectorsAt, objectorsN)
+	}
+	ob.FinishAsRoot()
+	return b.Finish(), nil
+}
+
+// UnmarshalZAP reads LP out of the buffer that arrived.
+func (x *LP) UnmarshalZAP(data []byte) error {
+	if x == nil || len(data) == 0 {
+		return nil
+	}
+	m, err := zap.Parse(data)
+	if err != nil {
+		return fmt.Errorf("LP: %w", err)
+	}
+	o := m.Root()
+	x.SupportWeight = types.Uint64(o.Uint64(lPSupportWeightAt))
+	if l := o.List(lPSupportersAt); l.Len() > 0 {
+		rows := make([]ids.NodeID, l.Len())
+		for i := range rows {
+			copy(rows[i][:], l.BytesAt(i))
+		}
+		x.Supporters = rows
+	}
+	x.ObjectWeight = types.Uint64(o.Uint64(lPObjectWeightAt))
+	if l := o.List(lPObjectorsAt); l.Len() > 0 {
+		rows := make([]ids.NodeID, l.Len())
+		for i := range rows {
+			copy(rows[i][:], l.BytesAt(i))
+		}
+		x.Objectors = rows
+	}
+	x.AbstainWeight = types.Uint64(o.Uint64(lPAbstainWeightAt))
+	return nil
+}
+
+// ---- LPStatus ----------------------------------------------------------
+
+const (
+	lPStatusNumberAt = 0
+	lPStatusLPAt     = 8
+	lPStatusSize     = 16
+)
+
+var _ interface {
+	MarshalZAP() ([]byte, error)
+	UnmarshalZAP([]byte) error
+} = (*LPStatus)(nil)
+
+// MarshalZAP writes LPStatus from constant offsets.
+func (x *LPStatus) MarshalZAP() ([]byte, error) {
+	if x == nil {
+		return nil, nil
+	}
+	b := zap.NewBuilder(lPStatusSize + 256)
+	ob := b.StartObject(lPStatusSize)
+	ob.SetUint32(lPStatusNumberAt, uint32(x.Number))
+	innerLP, err := x.LP.MarshalZAP()
+	if err != nil {
+		return nil, err
+	}
+	ob.SetBytes(lPStatusLPAt, innerLP)
+	ob.FinishAsRoot()
+	return b.Finish(), nil
+}
+
+// UnmarshalZAP reads LPStatus out of the buffer that arrived.
+func (x *LPStatus) UnmarshalZAP(data []byte) error {
+	if x == nil || len(data) == 0 {
+		return nil
+	}
+	m, err := zap.Parse(data)
+	if err != nil {
+		return fmt.Errorf("LPStatus: %w", err)
+	}
+	o := m.Root()
+	x.Number = uint32(o.Uint32(lPStatusNumberAt))
+	if raw := o.Bytes(lPStatusLPAt); len(raw) > 0 {
+		if err := x.LP.UnmarshalZAP(raw); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ---- LPsReply ----------------------------------------------------------
+
+const (
+	lPsReplyLPsAt = 0
+	lPsReplySize  = 8
+)
+
+var _ interface {
+	MarshalZAP() ([]byte, error)
+	UnmarshalZAP([]byte) error
+} = (*LPsReply)(nil)
+
+// MarshalZAP writes LPsReply from constant offsets.
+func (x *LPsReply) MarshalZAP() ([]byte, error) {
+	if x == nil {
+		return nil, nil
+	}
+	b := zap.NewBuilder(lPsReplySize + 256)
+	lPsAt, lPsN := 0, len(x.LPs)
+	if lPsN > 0 {
+		var blob []byte
+		for i := range x.LPs {
+			enc, err := x.LPs[i].MarshalZAP()
+			if err != nil {
+				return nil, err
+			}
+			var n [4]byte
+			binary.LittleEndian.PutUint32(n[:], uint32(len(enc)))
+			blob = append(blob, n[:]...)
+			blob = append(blob, enc...)
+		}
+		lPsAt = b.WriteBytes(blob)
+	}
+	ob := b.StartObject(lPsReplySize)
+	if lPsN > 0 {
+		ob.SetList(lPsReplyLPsAt, lPsAt, lPsN)
+	}
+	ob.FinishAsRoot()
+	return b.Finish(), nil
+}
+
+// UnmarshalZAP reads LPsReply out of the buffer that arrived.
+func (x *LPsReply) UnmarshalZAP(data []byte) error {
+	if x == nil || len(data) == 0 {
+		return nil
+	}
+	m, err := zap.Parse(data)
+	if err != nil {
+		return fmt.Errorf("LPsReply: %w", err)
+	}
+	o := m.Root()
+	if l := o.List(lPsReplyLPsAt); l.Len() > 0 {
+		rows := make(LPs, l.Len())
+		for i := range rows {
+			if err := rows[i].UnmarshalZAP(l.BytesAt(i)); err != nil {
+				return err
+			}
+		}
+		x.LPs = rows
+	}
+	return nil
+}
+
+// ---- Peer --------------------------------------------------------------
+
+const (
+	peerPeerInfoAt = 0
+	peerBenchedAt  = 8
+	peerSize       = 16
+)
+
+var _ interface {
+	MarshalZAP() ([]byte, error)
+	UnmarshalZAP([]byte) error
+} = (*Peer)(nil)
+
+// MarshalZAP writes Peer from constant offsets.
+func (x *Peer) MarshalZAP() ([]byte, error) {
+	if x == nil {
+		return nil, nil
+	}
+	b := zap.NewBuilder(peerSize + 256)
+	benchedAt, benchedN := 0, len(x.Benched)
+	if benchedN > 0 {
+		var blob []byte
+		for i := range x.Benched {
+			enc := []byte(x.Benched[i])
+			var n [4]byte
+			binary.LittleEndian.PutUint32(n[:], uint32(len(enc)))
+			blob = append(blob, n[:]...)
+			blob = append(blob, enc...)
+		}
+		benchedAt = b.WriteBytes(blob)
+	}
+	ob := b.StartObject(peerSize)
+	innerPeerInfo, err := x.PeerInfo.MarshalZAP()
+	if err != nil {
+		return nil, err
+	}
+	ob.SetBytes(peerPeerInfoAt, innerPeerInfo)
+	if benchedN > 0 {
+		ob.SetList(peerBenchedAt, benchedAt, benchedN)
+	}
+	ob.FinishAsRoot()
+	return b.Finish(), nil
+}
+
+// UnmarshalZAP reads Peer out of the buffer that arrived.
+func (x *Peer) UnmarshalZAP(data []byte) error {
+	if x == nil || len(data) == 0 {
+		return nil
+	}
+	m, err := zap.Parse(data)
+	if err != nil {
+		return fmt.Errorf("Peer: %w", err)
+	}
+	o := m.Root()
+	if raw := o.Bytes(peerPeerInfoAt); len(raw) > 0 {
+		if err := x.PeerInfo.UnmarshalZAP(raw); err != nil {
+			return err
+		}
+	}
+	if l := o.List(peerBenchedAt); l.Len() > 0 {
+		rows := make([]string, l.Len())
+		for i := range rows {
+			rows[i] = string(l.BytesAt(i))
+		}
+		x.Benched = rows
+	}
+	return nil
+}
+
+// ---- PeerInfo ----------------------------------------------------------
+
+const (
+	peerInfoIPAt             = 0
+	peerInfoPublicIPAt       = 8
+	peerInfoIDAt             = 16
+	peerInfoVersionAt        = 40
+	peerInfoLastSentAt       = 48
+	peerInfoLastReceivedAt   = 56
+	peerInfoObservedUptimeAt = 64
+	peerInfoTrackedChainsAt  = 72
+	peerInfoSupportedLPsAt   = 80
+	peerInfoObjectedLPsAt    = 88
+	peerInfoSize             = 96
+)
+
+var _ interface {
+	MarshalZAP() ([]byte, error)
+	UnmarshalZAP([]byte) error
+} = (*PeerInfo)(nil)
+
+// MarshalZAP writes PeerInfo from constant offsets.
+func (x *PeerInfo) MarshalZAP() ([]byte, error) {
+	if x == nil {
+		return nil, nil
+	}
+	b := zap.NewBuilder(peerInfoSize + 256)
+	trackedChainsAt, trackedChainsN := 0, len(x.TrackedChains)
+	if trackedChainsN > 0 {
+		var blob []byte
+		for i := range x.TrackedChains {
+			enc := x.TrackedChains[i][:]
+			var n [4]byte
+			binary.LittleEndian.PutUint32(n[:], uint32(len(enc)))
+			blob = append(blob, n[:]...)
+			blob = append(blob, enc...)
+		}
+		trackedChainsAt = b.WriteBytes(blob)
+	}
+	supportedLPsAt, supportedLPsN := 0, len(x.SupportedLPs)
+	if supportedLPsN > 0 {
+		var blob []byte
+		for i := range x.SupportedLPs {
+			var full [8]byte
+			binary.LittleEndian.PutUint64(full[:], uint64(x.SupportedLPs[i]))
+			enc := full[:4]
+			var n [4]byte
+			binary.LittleEndian.PutUint32(n[:], uint32(len(enc)))
+			blob = append(blob, n[:]...)
+			blob = append(blob, enc...)
+		}
+		supportedLPsAt = b.WriteBytes(blob)
+	}
+	objectedLPsAt, objectedLPsN := 0, len(x.ObjectedLPs)
+	if objectedLPsN > 0 {
+		var blob []byte
+		for i := range x.ObjectedLPs {
+			var full [8]byte
+			binary.LittleEndian.PutUint64(full[:], uint64(x.ObjectedLPs[i]))
+			enc := full[:4]
+			var n [4]byte
+			binary.LittleEndian.PutUint32(n[:], uint32(len(enc)))
+			blob = append(blob, n[:]...)
+			blob = append(blob, enc...)
+		}
+		objectedLPsAt = b.WriteBytes(blob)
+	}
+	ob := b.StartObject(peerInfoSize)
+	ob.SetText(peerInfoIPAt, string(x.IP))
+	ob.SetText(peerInfoPublicIPAt, string(x.PublicIP))
+	ob.SetBytesFixed(peerInfoIDAt, x.ID[:])
+	ob.SetText(peerInfoVersionAt, string(x.Version))
+	innerLastSent, err := x.LastSent.MarshalZAP()
+	if err != nil {
+		return nil, err
+	}
+	ob.SetBytes(peerInfoLastSentAt, innerLastSent)
+	innerLastReceived, err := x.LastReceived.MarshalZAP()
+	if err != nil {
+		return nil, err
+	}
+	ob.SetBytes(peerInfoLastReceivedAt, innerLastReceived)
+	ob.SetUint32(peerInfoObservedUptimeAt, uint32(x.ObservedUptime))
+	if trackedChainsN > 0 {
+		ob.SetList(peerInfoTrackedChainsAt, trackedChainsAt, trackedChainsN)
+	}
+	if supportedLPsN > 0 {
+		ob.SetList(peerInfoSupportedLPsAt, supportedLPsAt, supportedLPsN)
+	}
+	if objectedLPsN > 0 {
+		ob.SetList(peerInfoObjectedLPsAt, objectedLPsAt, objectedLPsN)
+	}
+	ob.FinishAsRoot()
+	return b.Finish(), nil
+}
+
+// UnmarshalZAP reads PeerInfo out of the buffer that arrived.
+func (x *PeerInfo) UnmarshalZAP(data []byte) error {
+	if x == nil || len(data) == 0 {
+		return nil
+	}
+	m, err := zap.Parse(data)
+	if err != nil {
+		return fmt.Errorf("PeerInfo: %w", err)
+	}
+	o := m.Root()
+	x.IP = types.Addr(strings.Clone(o.Text(peerInfoIPAt)))
+	x.PublicIP = types.Addr(strings.Clone(o.Text(peerInfoPublicIPAt)))
+	copy(x.ID[:], o.BytesFixed(peerInfoIDAt, 20))
+	x.Version = string(strings.Clone(o.Text(peerInfoVersionAt)))
+	if raw := o.Bytes(peerInfoLastSentAt); len(raw) > 0 {
+		if err := x.LastSent.UnmarshalZAP(raw); err != nil {
+			return err
+		}
+	}
+	if raw := o.Bytes(peerInfoLastReceivedAt); len(raw) > 0 {
+		if err := x.LastReceived.UnmarshalZAP(raw); err != nil {
+			return err
+		}
+	}
+	x.ObservedUptime = types.Uint32(o.Uint32(peerInfoObservedUptimeAt))
+	if l := o.List(peerInfoTrackedChainsAt); l.Len() > 0 {
+		rows := make([]ids.ID, l.Len())
+		for i := range rows {
+			copy(rows[i][:], l.BytesAt(i))
+		}
+		x.TrackedChains = rows
+	}
+	if l := o.List(peerInfoSupportedLPsAt); l.Len() > 0 {
+		rows := make([]uint32, l.Len())
+		for i := range rows {
+			var full [8]byte
+			copy(full[:], l.BytesAt(i))
+			rows[i] = uint32(binary.LittleEndian.Uint64(full[:]))
+		}
+		x.SupportedLPs = rows
+	}
+	if l := o.List(peerInfoObjectedLPsAt); l.Len() > 0 {
+		rows := make([]uint32, l.Len())
+		for i := range rows {
+			var full [8]byte
+			copy(full[:], l.BytesAt(i))
+			rows[i] = uint32(binary.LittleEndian.Uint64(full[:]))
+		}
+		x.ObjectedLPs = rows
+	}
+	return nil
+}
+
 // ---- PeersArgs ---------------------------------------------------------
 
 const (
@@ -444,6 +1133,72 @@ func (x *PeersArgs) UnmarshalZAP(data []byte) error {
 			copy(rows[i][:], l.BytesAt(i))
 		}
 		x.NodeIDs = rows
+	}
+	return nil
+}
+
+// ---- PeersReply --------------------------------------------------------
+
+const (
+	peersReplyNumPeersAt = 0
+	peersReplyPeersAt    = 8
+	peersReplySize       = 16
+)
+
+var _ interface {
+	MarshalZAP() ([]byte, error)
+	UnmarshalZAP([]byte) error
+} = (*PeersReply)(nil)
+
+// MarshalZAP writes PeersReply from constant offsets.
+func (x *PeersReply) MarshalZAP() ([]byte, error) {
+	if x == nil {
+		return nil, nil
+	}
+	b := zap.NewBuilder(peersReplySize + 256)
+	peersAt, peersN := 0, len(x.Peers)
+	if peersN > 0 {
+		var blob []byte
+		for i := range x.Peers {
+			enc, err := x.Peers[i].MarshalZAP()
+			if err != nil {
+				return nil, err
+			}
+			var n [4]byte
+			binary.LittleEndian.PutUint32(n[:], uint32(len(enc)))
+			blob = append(blob, n[:]...)
+			blob = append(blob, enc...)
+		}
+		peersAt = b.WriteBytes(blob)
+	}
+	ob := b.StartObject(peersReplySize)
+	ob.SetUint64(peersReplyNumPeersAt, uint64(x.NumPeers))
+	if peersN > 0 {
+		ob.SetList(peersReplyPeersAt, peersAt, peersN)
+	}
+	ob.FinishAsRoot()
+	return b.Finish(), nil
+}
+
+// UnmarshalZAP reads PeersReply out of the buffer that arrived.
+func (x *PeersReply) UnmarshalZAP(data []byte) error {
+	if x == nil || len(data) == 0 {
+		return nil
+	}
+	m, err := zap.Parse(data)
+	if err != nil {
+		return fmt.Errorf("PeersReply: %w", err)
+	}
+	o := m.Root()
+	x.NumPeers = types.Uint64(o.Uint64(peersReplyNumPeersAt))
+	if l := o.List(peersReplyPeersAt); l.Len() > 0 {
+		rows := make([]Peer, l.Len())
+		for i := range rows {
+			if err := rows[i].UnmarshalZAP(l.BytesAt(i)); err != nil {
+				return err
+			}
+		}
+		x.Peers = rows
 	}
 	return nil
 }
@@ -527,5 +1282,107 @@ func (x *UptimeResponse) UnmarshalZAP(data []byte) error {
 	o := m.Root()
 	x.RewardingStakePercentage = types.Float64(o.Float64(uptimeResponseRewardingStakePercentageAt))
 	x.WeightedAveragePercentage = types.Float64(o.Float64(uptimeResponseWeightedAveragePercentageAt))
+	return nil
+}
+
+// ---- VMAlias -----------------------------------------------------------
+
+const (
+	vMAliasVMAt      = 0
+	vMAliasAliasesAt = 32
+	vMAliasSize      = 40
+)
+
+var _ interface {
+	MarshalZAP() ([]byte, error)
+	UnmarshalZAP([]byte) error
+} = (*VMAlias)(nil)
+
+// MarshalZAP writes VMAlias from constant offsets.
+func (x *VMAlias) MarshalZAP() ([]byte, error) {
+	if x == nil {
+		return nil, nil
+	}
+	b := zap.NewBuilder(vMAliasSize + 256)
+	aliasesAt, aliasesN := 0, len(x.Aliases)
+	if aliasesN > 0 {
+		var blob []byte
+		for i := range x.Aliases {
+			enc := []byte(x.Aliases[i])
+			var n [4]byte
+			binary.LittleEndian.PutUint32(n[:], uint32(len(enc)))
+			blob = append(blob, n[:]...)
+			blob = append(blob, enc...)
+		}
+		aliasesAt = b.WriteBytes(blob)
+	}
+	ob := b.StartObject(vMAliasSize)
+	ob.SetBytesFixed(vMAliasVMAt, x.VM[:])
+	if aliasesN > 0 {
+		ob.SetList(vMAliasAliasesAt, aliasesAt, aliasesN)
+	}
+	ob.FinishAsRoot()
+	return b.Finish(), nil
+}
+
+// UnmarshalZAP reads VMAlias out of the buffer that arrived.
+func (x *VMAlias) UnmarshalZAP(data []byte) error {
+	if x == nil || len(data) == 0 {
+		return nil
+	}
+	m, err := zap.Parse(data)
+	if err != nil {
+		return fmt.Errorf("VMAlias: %w", err)
+	}
+	o := m.Root()
+	copy(x.VM[:], o.BytesFixed(vMAliasVMAt, 32))
+	if l := o.List(vMAliasAliasesAt); l.Len() > 0 {
+		rows := make([]string, l.Len())
+		for i := range rows {
+			rows[i] = string(l.BytesAt(i))
+		}
+		x.Aliases = rows
+	}
+	return nil
+}
+
+// ---- VMVersion ---------------------------------------------------------
+
+const (
+	vMVersionVMAt      = 0
+	vMVersionVersionAt = 8
+	vMVersionSize      = 16
+)
+
+var _ interface {
+	MarshalZAP() ([]byte, error)
+	UnmarshalZAP([]byte) error
+} = (*VMVersion)(nil)
+
+// MarshalZAP writes VMVersion from constant offsets.
+func (x *VMVersion) MarshalZAP() ([]byte, error) {
+	if x == nil {
+		return nil, nil
+	}
+	b := zap.NewBuilder(vMVersionSize + 256)
+	ob := b.StartObject(vMVersionSize)
+	ob.SetText(vMVersionVMAt, string(x.VM))
+	ob.SetText(vMVersionVersionAt, string(x.Version))
+	ob.FinishAsRoot()
+	return b.Finish(), nil
+}
+
+// UnmarshalZAP reads VMVersion out of the buffer that arrived.
+func (x *VMVersion) UnmarshalZAP(data []byte) error {
+	if x == nil || len(data) == 0 {
+		return nil
+	}
+	m, err := zap.Parse(data)
+	if err != nil {
+		return fmt.Errorf("VMVersion: %w", err)
+	}
+	o := m.Root()
+	x.VM = string(strings.Clone(o.Text(vMVersionVMAt)))
+	x.Version = string(strings.Clone(o.Text(vMVersionVersionAt)))
 	return nil
 }

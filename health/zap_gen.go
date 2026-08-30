@@ -5,7 +5,10 @@ package health
 import (
 	"encoding/binary"
 	"fmt"
+	"strings"
+	"time"
 
+	types "github.com/luxfi/api/types"
 	zap "github.com/zap-proto/go"
 )
 
@@ -63,6 +66,198 @@ func (x *APIArgs) UnmarshalZAP(data []byte) error {
 			rows[i] = string(l.BytesAt(i))
 		}
 		x.Tags = rows
+	}
+	return nil
+}
+
+// ---- APIReply ----------------------------------------------------------
+
+const (
+	aPIReplyChecksAt  = 0
+	aPIReplyHealthyAt = 8
+	aPIReplySize      = 16
+)
+
+var _ interface {
+	MarshalZAP() ([]byte, error)
+	UnmarshalZAP([]byte) error
+} = (*APIReply)(nil)
+
+// MarshalZAP writes APIReply from constant offsets.
+func (x *APIReply) MarshalZAP() ([]byte, error) {
+	if x == nil {
+		return nil, nil
+	}
+	b := zap.NewBuilder(aPIReplySize + 256)
+	checksAt, checksN := 0, len(x.Checks)
+	if checksN > 0 {
+		var blob []byte
+		for i := range x.Checks {
+			enc, err := x.Checks[i].MarshalZAP()
+			if err != nil {
+				return nil, err
+			}
+			var n [4]byte
+			binary.LittleEndian.PutUint32(n[:], uint32(len(enc)))
+			blob = append(blob, n[:]...)
+			blob = append(blob, enc...)
+		}
+		checksAt = b.WriteBytes(blob)
+	}
+	ob := b.StartObject(aPIReplySize)
+	ob.SetBool(aPIReplyHealthyAt, bool(x.Healthy))
+	if checksN > 0 {
+		ob.SetList(aPIReplyChecksAt, checksAt, checksN)
+	}
+	ob.FinishAsRoot()
+	return b.Finish(), nil
+}
+
+// UnmarshalZAP reads APIReply out of the buffer that arrived.
+func (x *APIReply) UnmarshalZAP(data []byte) error {
+	if x == nil || len(data) == 0 {
+		return nil
+	}
+	m, err := zap.Parse(data)
+	if err != nil {
+		return fmt.Errorf("APIReply: %w", err)
+	}
+	o := m.Root()
+	if l := o.List(aPIReplyChecksAt); l.Len() > 0 {
+		rows := make(Checks, l.Len())
+		for i := range rows {
+			if err := rows[i].UnmarshalZAP(l.BytesAt(i)); err != nil {
+				return err
+			}
+		}
+		x.Checks = rows
+	}
+	x.Healthy = bool(o.Bool(aPIReplyHealthyAt))
+	return nil
+}
+
+// ---- Check -------------------------------------------------------------
+
+const (
+	checkNameAt   = 0
+	checkResultAt = 8
+	checkSize     = 16
+)
+
+var _ interface {
+	MarshalZAP() ([]byte, error)
+	UnmarshalZAP([]byte) error
+} = (*Check)(nil)
+
+// MarshalZAP writes Check from constant offsets.
+func (x *Check) MarshalZAP() ([]byte, error) {
+	if x == nil {
+		return nil, nil
+	}
+	b := zap.NewBuilder(checkSize + 256)
+	ob := b.StartObject(checkSize)
+	ob.SetText(checkNameAt, string(x.Name))
+	innerResult, err := x.Result.MarshalZAP()
+	if err != nil {
+		return nil, err
+	}
+	ob.SetBytes(checkResultAt, innerResult)
+	ob.FinishAsRoot()
+	return b.Finish(), nil
+}
+
+// UnmarshalZAP reads Check out of the buffer that arrived.
+func (x *Check) UnmarshalZAP(data []byte) error {
+	if x == nil || len(data) == 0 {
+		return nil
+	}
+	m, err := zap.Parse(data)
+	if err != nil {
+		return fmt.Errorf("Check: %w", err)
+	}
+	o := m.Root()
+	x.Name = string(strings.Clone(o.Text(checkNameAt)))
+	if raw := o.Bytes(checkResultAt); len(raw) > 0 {
+		if err := x.Result.UnmarshalZAP(raw); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ---- Result ------------------------------------------------------------
+
+const (
+	resultDetailsAt            = 0
+	resultErrorAt              = 8
+	resultTimestampAt          = 16
+	resultDurationAt           = 24
+	resultContiguousFailuresAt = 32
+	resultTimeOfFirstFailureAt = 40
+	resultSize                 = 48
+)
+
+var _ interface {
+	MarshalZAP() ([]byte, error)
+	UnmarshalZAP([]byte) error
+} = (*Result)(nil)
+
+// MarshalZAP writes Result from constant offsets.
+func (x *Result) MarshalZAP() ([]byte, error) {
+	if x == nil {
+		return nil, nil
+	}
+	b := zap.NewBuilder(resultSize + 256)
+	ob := b.StartObject(resultSize)
+	ob.SetBytes(resultDetailsAt, []byte(x.Details))
+	if x.Error != nil {
+		ob.SetText(resultErrorAt, string((*x.Error)))
+	}
+	innerTimestamp, err := x.Timestamp.MarshalZAP()
+	if err != nil {
+		return nil, err
+	}
+	ob.SetBytes(resultTimestampAt, innerTimestamp)
+	ob.SetInt64(resultDurationAt, int64(x.Duration))
+	ob.SetInt64(resultContiguousFailuresAt, int64(x.ContiguousFailures))
+	if x.TimeOfFirstFailure != nil {
+		innerTimeOfFirstFailure, err := x.TimeOfFirstFailure.MarshalZAP()
+		if err != nil {
+			return nil, err
+		}
+		ob.SetBytes(resultTimeOfFirstFailureAt, innerTimeOfFirstFailure)
+	}
+	ob.FinishAsRoot()
+	return b.Finish(), nil
+}
+
+// UnmarshalZAP reads Result out of the buffer that arrived.
+func (x *Result) UnmarshalZAP(data []byte) error {
+	if x == nil || len(data) == 0 {
+		return nil
+	}
+	m, err := zap.Parse(data)
+	if err != nil {
+		return fmt.Errorf("Result: %w", err)
+	}
+	o := m.Root()
+	x.Details = types.Raw(append([]byte(nil), o.Bytes(resultDetailsAt)...))
+	if v := string(strings.Clone(o.Text(resultErrorAt))); v != "" {
+		x.Error = &v
+	}
+	if raw := o.Bytes(resultTimestampAt); len(raw) > 0 {
+		if err := x.Timestamp.UnmarshalZAP(raw); err != nil {
+			return err
+		}
+	}
+	x.Duration = time.Duration(o.Int64(resultDurationAt))
+	x.ContiguousFailures = int64(o.Int64(resultContiguousFailuresAt))
+	if raw := o.Bytes(resultTimeOfFirstFailureAt); len(raw) > 0 {
+		var v types.Time
+		if err := v.UnmarshalZAP(raw); err != nil {
+			return err
+		}
+		x.TimeOfFirstFailure = &v
 	}
 	return nil
 }
